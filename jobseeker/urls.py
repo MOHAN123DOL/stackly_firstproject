@@ -5,6 +5,7 @@ urlpatterns = [
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
     path("jobseeker/profile/", JobSeekerProfileAPI.as_view(), name="jobseeker-profile"),
      path("api/change-password/", ChangePasswordAPI.as_view(), name="change-password"),
+     
 ]
 
 

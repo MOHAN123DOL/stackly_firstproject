@@ -1,18 +1,21 @@
-
 from rest_framework.generics import GenericAPIView
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.files.images import get_image_dimensions
-from django.urls import reverse
 from django.shortcuts import render
-from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import JobSeeker
-from .serializers import JobSeekerAvatarSerializer,JobSeekerRegistrationSerializer ,CustomTokenSerializer,ChangePasswordSerializer , JobSeekerProfileSerializer
 
+from .models import JobSeeker
+from .serializers import (
+    JobSeekerAvatarSerializer,
+    JobSeekerRegistrationSerializer,
+    CustomTokenSerializer,
+    ChangePasswordSerializer,
+    JobSeekerProfileSerializer,
+)
+from notifications.utils import create_notification
 
 
 def test_avatar(request):
@@ -35,7 +38,6 @@ class JobSeekerAvatarAPI(GenericAPIView):
     def _get_jobseeker(self, request):
         return JobSeeker.objects.get_or_create(user=request.user)[0]
 
-    # GET → view avatar
     def get(self, request):
         error = self._check_jobseeker_access(request)
         if error:
@@ -45,7 +47,6 @@ class JobSeekerAvatarAPI(GenericAPIView):
         serializer = self.get_serializer(jobseeker)
         return Response(serializer.data)
 
-    # POST → upload first time
     def post(self, request):
         error = self._check_jobseeker_access(request)
         if error:
@@ -83,12 +84,12 @@ class JobSeekerAvatarAPI(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        create_notification(request.user, "Avatar updated successfully")
         return Response(
             {"message": "Avatar uploaded successfully", "data": serializer.data},
             status=status.HTTP_200_OK
         )
 
-    # DELETE → remove avatar
     def delete(self, request):
         jobseeker = self._get_jobseeker(request)
 
@@ -102,37 +103,39 @@ class JobSeekerAvatarAPI(GenericAPIView):
         jobseeker.avatar = None
         jobseeker.save()
 
+        create_notification(request.user, "Avatar removed")
+
         return Response(
             {"message": "Avatar deleted successfully"},
             status=status.HTTP_200_OK
         )
-    
 
 
 class JobSeekerRegistrationAPI(GenericAPIView):
     serializer_class = JobSeekerRegistrationSerializer
-    permission_classes = [AllowAny]    
-    authentication_classes = []          
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+
+        
+        user = serializer.save()
+
+        create_notification(user, "Registration completed successfully")
 
         return Response(
-    {
-        "message": "Registration successful. Please login.",
-        "login_url": "/api/login/"
-        
-    },
-         status=status.HTTP_201_CREATED
-)
-    
+            {
+                "message": "Registration successful. Please login.",
+                "login_url": "/api/login/",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class CustomLoginAPI(TokenObtainPairView):
     serializer_class = CustomTokenSerializer
-
-
 
 
 class JobSeekerProfileAPI(GenericAPIView):
@@ -141,27 +144,20 @@ class JobSeekerProfileAPI(GenericAPIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request):
-        # get or create profile
-        jobseeker, created = JobSeeker.objects.get_or_create(
-            user=request.user
-        )
-
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
         serializer = self.get_serializer(jobseeker)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request):
         jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
 
-        serializer = self.get_serializer(
-            jobseeker,
-            data=request.data
-        )
+        serializer = self.get_serializer(jobseeker, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        create_notification(request.user, "Profile updated successfully")
         return Response(serializer.data)
 
-    
 
 class ChangePasswordAPI(GenericAPIView):
     serializer_class = ChangePasswordSerializer
@@ -173,23 +169,18 @@ class ChangePasswordAPI(GenericAPIView):
 
         user = request.user
 
-        # Check old password
         if not user.check_password(serializer.validated_data["old_password"]):
             return Response(
                 {"error": "Old password is incorrect"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Set new password
         user.set_password(serializer.validated_data["new_password"])
         user.save()
 
+        create_notification(user, "Password changed successfully")
+
         return Response(
-            {"message": f" {user.username} Your Password changed successfully"
-            },
-            status=status.HTTP_200_OK
+            {"message": f"{user.username} Your Password changed successfully"},
+            status=status.HTTP_200_OK,
         )
-
-
-
-

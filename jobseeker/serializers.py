@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from .models import JobSeeker     
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
+from .models import JobSeeker     
+
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,12 +10,11 @@ class JobSeekerAvatarSerializer(serializers.ModelSerializer):
         fields = ['avatar']
 
 
-
 class JobSeekerRegistrationSerializer(serializers.Serializer):
     username = serializers.CharField()
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True,style={'input_type': 'password'})
-    confirm_password = serializers.CharField(write_only=True,style={'input_type': 'password'})
+    password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    confirm_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
     def validate(self, data):
         if data["password"] != data["confirm_password"]:
@@ -36,27 +36,35 @@ class JobSeekerRegistrationSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         user = User(
-        username=validated_data['username'],
-        email=validated_data.get('email')
-    )
-        user.set_password(validated_data['password']) 
+            username=validated_data['username'],
+            email=validated_data.get('email')
+        )
+        user.set_password(validated_data['password'])
         user.save()
+
         # create empty jobseeker profile
         JobSeeker.objects.create(user=user)
         return user
 
+    # 🔴 THIS IS WHAT WAS MISSING
+    def update(self, instance, validated_data):
+        instance.username = validated_data.get("username", instance.username)
+        instance.email = validated_data.get("email", instance.email)
+
+        if "password" in validated_data:
+            instance.set_password(validated_data["password"])
+
+        instance.save()
+        return instance
 
 
 class CustomTokenSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        # custom response fields
         data["message"] = f"Welcome {self.user.username}"
         data["username"] = self.user.username
         data["profile_url"] = "/jobseeker/profile/"
-
         return data
-
 
 
 class JobSeekerProfileSerializer(serializers.ModelSerializer):
@@ -81,13 +89,11 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
 
 
 class ChangePasswordSerializer(serializers.Serializer):
-    old_password = serializers.CharField(write_only=True,style={'input_type': 'password'})
-    new_password = serializers.CharField(write_only=True,style={'input_type': 'password'})
-    confirm_password = serializers.CharField(write_only=True,style={'input_type': 'password'})
+    old_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    new_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    confirm_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
     def validate(self, data):
         if data["new_password"] != data["confirm_password"]:
             raise serializers.ValidationError("New passwords do not match")
         return data
-
-

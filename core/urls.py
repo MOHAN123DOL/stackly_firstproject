@@ -39,6 +39,7 @@ urlpatterns = [
 
     # App URLs
     path("", include("jobseeker.urls")),
+    path("api/", include("notifications.urls")),
 ]
 
 
