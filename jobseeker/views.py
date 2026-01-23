@@ -7,7 +7,7 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import JobSeeker
+from .models import JobSeeker , UserAppliedJob, UserSavedJob
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -16,8 +16,9 @@ from .serializers import (
     JobSeekerProfileSerializer,
 )
 from notifications.utils import create_notification
-
-
+from notifications.models import Notification
+from django.utils.timezone import now
+from datetime import timedelta
 def test_avatar(request):
     return render(request, "jobseeker/avatar_upload.html")
 
@@ -183,4 +184,61 @@ class ChangePasswordAPI(GenericAPIView):
         return Response(
             {"message": f"{user.username} Your Password changed successfully"},
             status=status.HTTP_200_OK,
+        )
+    
+#for dashboard count serializer not needed
+class JobSeekerDashboardCountAPI(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # 1️⃣ Notifications count
+        total_notifications = Notification.objects.filter(
+            user=user
+        ).count()
+
+        unread_notifications = Notification.objects.filter(
+            user=user,
+            is_read=False
+        ).count()
+
+        # 2️⃣ JobSeeker profile (ensure exists)
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=user)
+
+        fields = [
+            bool(jobseeker.avatar),
+            bool(jobseeker.first_name.strip()),
+            bool(jobseeker.last_name.strip()),
+            bool(jobseeker.education.strip()),
+            bool(jobseeker.experience.strip()),
+        ]
+
+        completed_fields = sum(fields)
+        total_fields = len(fields)
+
+        profile_completion = int(
+            (completed_fields / total_fields) * 100
+        )
+        applied_job=UserAppliedJob.objects.filter(user=user).count()
+        saved_job=UserSavedJob.objects.filter(user=user).count()
+
+        jobseeker = JobSeeker.objects.get(user=user)
+
+        yesterday = now().date() - timedelta(days=1)
+        if jobseeker.updated_at.date() == yesterday or jobseeker.updated_at.date() == now().date():
+            is_daily_followup = True
+        else :
+            is_daily_followup = False
+
+        return Response(
+            {
+                "notifications": total_notifications,
+                "unread_notifications": unread_notifications,
+                "profile_completion": f"{profile_completion}%",
+                "Applied_Job" : applied_job,
+                "Saved_Job" : saved_job,
+                "is_user_daily_active" :  is_daily_followup
+            },
+            status=status.HTTP_200_OK
         )

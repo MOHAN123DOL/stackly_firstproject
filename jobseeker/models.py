@@ -17,3 +17,19 @@ class JobSeeker(models.Model):
 
 
 
+class UserAppliedJob(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    job_id = models.IntegerField()  # fake / external job reference
+    applied_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} applied to job {self.job_id}"
+    
+class UserSavedJob(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    job_id = models.IntegerField()  # fake / external job reference
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} saved job {self.job_id}"
+
