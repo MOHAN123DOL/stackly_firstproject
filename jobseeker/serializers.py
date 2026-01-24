@@ -1,8 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from .models import JobSeeker     
-
+from .models import JobSeeker    
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -58,13 +57,6 @@ class JobSeekerRegistrationSerializer(serializers.Serializer):
         return instance
 
 
-class CustomTokenSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        data["message"] = f"Welcome {self.user.username}"
-        data["username"] = self.user.username
-        data["profile_url"] = "/jobseeker/profile/"
-        return data
 
 
 class JobSeekerProfileSerializer(serializers.ModelSerializer):
@@ -96,4 +88,18 @@ class ChangePasswordSerializer(serializers.Serializer):
     def validate(self, data):
         if data["new_password"] != data["confirm_password"]:
             raise serializers.ValidationError("New passwords do not match")
+        return data
+
+
+
+
+class CustomTokenSerializer(TokenObtainPairSerializer):
+
+    def validate(self, attrs):
+    
+        data = super().validate(attrs)
+        data["message"] = f"Welcome {self.user.username}"
+        data["username"] = self.user.username
+        data["profile_url"] = "/jobseeker/profile/"
+
         return data
