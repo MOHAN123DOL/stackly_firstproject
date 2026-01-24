@@ -1,4 +1,4 @@
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView 
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
@@ -6,21 +6,31 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from rest_framework.permissions import BasePermission
 from .models import JobSeeker , UserAppliedJob, UserSavedJob
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
-    CustomTokenSerializer,
     ChangePasswordSerializer,
     JobSeekerProfileSerializer,
+    CustomTokenSerializer,
+    
 )
 from notifications.utils import create_notification
 from notifications.models import Notification
 from django.utils.timezone import now
 from datetime import timedelta
+from rest_framework.views import APIView
+
+
+
+
+
 def test_avatar(request):
     return render(request, "jobseeker/avatar_upload.html")
+
+
+
 
 
 class JobSeekerAvatarAPI(GenericAPIView):
@@ -139,6 +149,7 @@ class CustomLoginAPI(TokenObtainPairView):
     serializer_class = CustomTokenSerializer
 
 
+
 class JobSeekerProfileAPI(GenericAPIView):
     serializer_class = JobSeekerProfileSerializer
     permission_classes = [IsAuthenticated]
@@ -242,3 +253,18 @@ class JobSeekerDashboardCountAPI(GenericAPIView):
             },
             status=status.HTTP_200_OK
         )
+
+
+
+class LogoutAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        username = request.user.username
+        return Response(
+            {"message": f"{username} Logout successfully",
+            "login_link":"/api/login/" },
+            status=status.HTTP_200_OK
+        )
+
+
