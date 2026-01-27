@@ -24,8 +24,6 @@ from rest_framework.views import APIView
 
 
 
-
-
 def test_avatar(request):
     return render(request, "jobseeker/avatar_upload.html")
 

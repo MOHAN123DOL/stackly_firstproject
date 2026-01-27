@@ -1,7 +1,10 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
-from .models import JobSeeker    
+from .models import JobSeeker  
+# serializers.py
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed  
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -93,13 +96,41 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 
+
+
+
 class CustomTokenSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
-    
-        data = super().validate(attrs)
-        data["message"] = f"Welcome {self.user.username}"
-        data["username"] = self.user.username
+        login_value = attrs.get("username")   
+        password = attrs.get("password")
+
+        if "@" in login_value:
+            try:
+                user = User.objects.filter(email__iexact=login_value).first()
+                username = user.username
+            except User.DoesNotExist:
+                raise AuthenticationFailed("Invalid email or password")
+        else:
+            username = login_value
+
+        #  Authenticate user
+        user = authenticate(username=username, password=password)
+        if not user:
+            raise AuthenticationFailed("Invalid username/email or password")
+
+        self.user = user
+
+        # SimpleJWT generate tokens
+        data = super().validate({
+            "username": username,
+            "password": password
+        })
+
+        #  Custom response
+        data["message"] = f"Welcome {user.username}"
+        data["username"] = user.username
         data["profile_url"] = "/jobseeker/profile/"
 
         return data
+
