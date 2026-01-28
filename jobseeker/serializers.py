@@ -2,9 +2,10 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 from .models import JobSeeker  
-# serializers.py
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed  
+from rest_framework import serializers
+from .models import Job, UserAppliedJob ,Company , JobSeeker 
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -134,3 +135,39 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
 
         return data
 
+
+
+
+class CompanyJobSerializer(serializers.ModelSerializer):
+    applied_count = serializers.IntegerField(read_only=True)
+    class Meta:
+        model = Job
+        fields = [
+            "id",
+            "role",
+            "salary",
+            "duration",
+            "posted_on",
+            "applied_count",
+        ]
+
+
+
+class CompanyLogoUploadSerializer(serializers.Serializer):
+    company_logo = serializers.ImageField()
+
+
+
+class OpportunityCompanySerializer(serializers.ModelSerializer):
+    company_logo = serializers.ImageField(use_url=True)
+    jobs_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Company
+        fields = [
+            "id",
+            "name",
+            "company_logo",
+            "location",
+            "jobs_count",
+        ]

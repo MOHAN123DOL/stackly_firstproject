@@ -14,34 +14,57 @@ class JobSeeker(models.Model):
 
     def __str__(self):
         return self.user.username
+# models.py
+class Company(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    location = models.CharField(max_length=200, blank=True)
+    website = models.URLField(blank=True)
+    company_logo = models.ImageField(
+        upload_to="company_logos/",
+        null=True,
+        blank=True
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True,blank=True)
+
+    def __str__(self):
+        return self.name
     
+class Job(models.Model):
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="jobs"
+    )
+    role = models.CharField(max_length=200)
+    salary = models.CharField(max_length=100)
+    duration = models.CharField(
+        max_length=50,
+        help_text="Full-time / Internship / Contract"
+    )
+    posted_on = models.DateField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.role} at {self.company.name}"
 
 
 
 class UserAppliedJob(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    job_id = models.IntegerField()  # fake / external job reference
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
     applied_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username} applied to job {self.job_id}"
     
 class UserSavedJob(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    job_id = models.IntegerField()  # fake / external job reference
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
     saved_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username} saved job {self.job_id}"
 
-# models.py
-from django.db import models
 
-class Job(models.Model):
-    title = models.CharField(max_length=200)
-    company = models.CharField(max_length=200)
-    location = models.CharField(max_length=100)
-    salary = models.CharField(max_length=50)
 
-    def __str__(self):
-        return f"{self.title} - {self.company}"
+
+
+
+
+

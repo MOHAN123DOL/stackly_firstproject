@@ -1,4 +1,4 @@
-from rest_framework.generics import GenericAPIView 
+from rest_framework.generics import GenericAPIView , ListAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
@@ -7,13 +7,16 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
-from .models import JobSeeker , UserAppliedJob, UserSavedJob
+from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
     ChangePasswordSerializer,
     JobSeekerProfileSerializer,
     CustomTokenSerializer,
+    CompanyJobSerializer,
+    CompanyLogoUploadSerializer,
+    OpportunityCompanySerializer,
     
 )
 from notifications.utils import create_notification
@@ -21,12 +24,7 @@ from notifications.models import Notification
 from django.utils.timezone import now
 from datetime import timedelta
 from rest_framework.views import APIView
-
-
-
-def test_avatar(request):
-    return render(request, "jobseeker/avatar_upload.html")
-
+from django.db.models import Count
 
 
 
@@ -195,7 +193,6 @@ class ChangePasswordAPI(GenericAPIView):
             status=status.HTTP_200_OK,
         )
     
-#for dashboard count serializer not needed
 class JobSeekerDashboardCountAPI(GenericAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -266,10 +263,75 @@ class LogoutAPI(APIView):
         )
 
 
-# views.py
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAdminUser
-from .models import UserAppliedJob, UserSavedJob
 
+
+class CompanyJobsAPI(APIView):
+
+    def get(self, request, company_id):
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        jobs = (
+            Job.objects
+            .filter(company=company)
+            .annotate(applied_count=Count("userappliedjob"))
+            .order_by("-posted_on")
+        )
+
+        serializer = CompanyJobSerializer(jobs, many=True)
+
+        return Response(
+            {
+                "company_id": company.id,
+                "company_name": company.name,
+                "total_jobs": jobs.count(),
+
+                "jobs": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+
+
+class CompanyLogoUploadAPI(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = CompanyLogoUploadSerializer
+
+    def post(self, request, company_id):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            company = Company.objects.get(id=company_id)
+        except Company.DoesNotExist:
+            return Response(
+                {"error": "Company not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        company.company_logo = serializer.validated_data["company_logo"]
+        company.save(update_fields=["company_logo"])
+
+        return Response(
+            {"message": "Company logo uploaded successfully"},
+            status=status.HTTP_200_OK
+        )
+
+
+class JobSeekerOpportunitiesCompanyListAPI(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = OpportunityCompanySerializer
+
+    def get_queryset(self):
+        return (
+            Company.objects
+            .annotate(jobs_count=Count("jobs"))
+            .order_by("-created_at")
+        )
