@@ -6,6 +6,8 @@ from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed  
 from rest_framework import serializers
 from .models import Job, UserAppliedJob ,Company , JobSeeker 
+from .models import LandingChoice
+from employees.models import Employee
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,11 +15,19 @@ class JobSeekerAvatarSerializer(serializers.ModelSerializer):
         fields = ['avatar']
 
 
-class JobSeekerRegistrationSerializer(serializers.Serializer):
+
+
+class UserRegistrationSerializer(serializers.Serializer):
+    ROLE_CHOICES = (
+        ("jobseeker", "Job Seeker"),
+        ("employee", "Employee"),
+    )
+
     username = serializers.CharField()
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, style={'input_type': 'password'})
-    confirm_password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    role = serializers.ChoiceField(choices=ROLE_CHOICES)
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    confirm_password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
     def validate(self, data):
         if data["password"] != data["confirm_password"]:
@@ -38,27 +48,31 @@ class JobSeekerRegistrationSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
+        role = validated_data.pop("role")
+
         user = User(
-            username=validated_data['username'],
-            email=validated_data.get('email')
+            username=validated_data["username"],
+            email=validated_data.get("email"),
         )
-        user.set_password(validated_data['password'])
+
+        # 🔹 Employee = staff user
+        if role == "employee":
+            user.is_staff = True
+
+        user.set_password(validated_data["password"])
         user.save()
 
-        # create empty jobseeker profile
-        JobSeeker.objects.create(user=user)
+        # 🔹 Create profile based on role
+        if role == "jobseeker":
+            JobSeeker.objects.create(user=user)
+        else:
+            Employee.objects.create(
+                user=user,
+                company_name=""  # can be updated later
+            )
+
         return user
 
-    # 🔴 THIS IS WHAT WAS MISSING
-    def update(self, instance, validated_data):
-        instance.username = validated_data.get("username", instance.username)
-        instance.email = validated_data.get("email", instance.email)
-
-        if "password" in validated_data:
-            instance.set_password(validated_data["password"])
-
-        instance.save()
-        return instance
 
 
 
@@ -95,43 +109,45 @@ class ChangePasswordSerializer(serializers.Serializer):
         return data
 
 
-
-
-
-
-
 class CustomTokenSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
-        login_value = attrs.get("username")   
+        login_value = attrs.get("username")
         password = attrs.get("password")
 
+        # 🔹 Allow login with email or username
         if "@" in login_value:
-            try:
-                user = User.objects.filter(email__iexact=login_value).first()
-                username = user.username
-            except User.DoesNotExist:
+            user = User.objects.filter(email__iexact=login_value).first()
+            if not user:
                 raise AuthenticationFailed("Invalid email or password")
+            username = user.username
         else:
             username = login_value
 
-        #  Authenticate user
+        # 🔹 Authenticate user
         user = authenticate(username=username, password=password)
         if not user:
             raise AuthenticationFailed("Invalid username/email or password")
 
         self.user = user
 
-        # SimpleJWT generate tokens
+        # 🔹 Generate JWT tokens
         data = super().validate({
             "username": username,
             "password": password
         })
 
-        #  Custom response
-        data["message"] = f"Welcome {user.username}"
+        # 🔹 Role-based response
+        if user.is_staff:
+            data["role"] = "employer"
+            data["message"] = f"Welcome Employer {user.username}"
+            data["redirect_url"] = "/employer/dashboard/"
+        else:
+            data["role"] = "jobseeker"
+            data["message"] = f"Welcome {user.username}"
+            data["redirect_url"] = "/jobseeker/dashboard/"
+
         data["username"] = user.username
-        data["profile_url"] = "/jobseeker/profile/"
 
         return data
 
@@ -170,4 +186,16 @@ class OpportunityCompanySerializer(serializers.ModelSerializer):
             "company_logo",
             "location",
             "jobs_count",
+        ]
+
+
+class LandingChoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LandingChoice
+        fields = [
+            "id",
+            "role",
+            "title",
+            "description",
+            "redirect_url",
         ]

@@ -7,16 +7,17 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
-from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job
+from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , LandingChoice
 from .serializers import (
     JobSeekerAvatarSerializer,
-    JobSeekerRegistrationSerializer,
+    UserRegistrationSerializer,
     ChangePasswordSerializer,
     JobSeekerProfileSerializer,
     CustomTokenSerializer,
     CompanyJobSerializer,
     CompanyLogoUploadSerializer,
     OpportunityCompanySerializer,
+    LandingChoiceSerializer,
     
 )
 from notifications.utils import create_notification
@@ -25,7 +26,8 @@ from django.utils.timezone import now
 from datetime import timedelta
 from rest_framework.views import APIView
 from django.db.models import Count
-
+from django.contrib.auth.models import User
+from employees.models import Employee
 
 
 
@@ -119,7 +121,7 @@ class JobSeekerAvatarAPI(GenericAPIView):
 
 
 class JobSeekerRegistrationAPI(GenericAPIView):
-    serializer_class = JobSeekerRegistrationSerializer
+    serializer_class = UserRegistrationSerializer
     permission_classes = [AllowAny]
     authentication_classes = []
 
@@ -335,3 +337,42 @@ class JobSeekerOpportunitiesCompanyListAPI(ListAPIView):
             .annotate(jobs_count=Count("jobs"))
             .order_by("-created_at")
         )
+
+
+class LandingChoiceAPI(ListAPIView):
+    permission_classes = []
+    serializer_class = LandingChoiceSerializer
+
+    def get_queryset(self):
+        return LandingChoice.objects.filter(is_active=True).order_by("id")[:2]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        job_count = Job.objects.count()
+        employee_count = Employee.objects.count()
+
+        # JobSeekers = users who are NOT staff and NOT superuser
+        jobseeker_count = User.objects.filter(
+            is_staff=False,
+            is_superuser=False
+        ).count()
+
+        data = []
+        for choice in queryset:
+            item = LandingChoiceSerializer(choice).data
+
+            if choice.role == "jobseeker":
+                item["count_text"] = f"{job_count}+ Jobs available  &&  {employee_count}+ Employer are ready to hire you"
+            elif choice.role == "employer":
+                item["count_text"] = f"{jobseeker_count}+ job seekers available"
+            else:
+                item["count_text"] = ""
+
+            data.append(item)
+
+        return Response(data)
+
+
+
+
