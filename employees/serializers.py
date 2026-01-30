@@ -65,6 +65,10 @@ class EmployeeRegistrationSerializer(serializers.ModelSerializer):
 
 #FOR FORGOT PASSWORD AND GET TOKEN LINK AND ALLOW USER CREATE NEW PASSWORD
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 482805d3a77c76944e3258103137bf532daf399b
 class EmployerForgotPasswordOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
