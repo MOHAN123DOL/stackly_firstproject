@@ -3,18 +3,8 @@ from django.contrib.auth.models import User
 from .models import Employee
 
 
-class EmployerForgotPasswordSerializer(serializers.Serializer):
-    email = serializers.EmailField()
 
-    def validate_email(self, value):
-        user = User.objects.filter(email=value, is_staff=True).first()
-        if not user:
-            raise serializers.ValidationError(
-                "Employer account with this email does not exist"
-            )
-        return value
-
-
+#FOR SIGNUP PAGE 
 
 class EmployeeRegistrationSerializer(serializers.ModelSerializer):
 
@@ -72,3 +62,56 @@ class EmployeeRegistrationSerializer(serializers.ModelSerializer):
         )
 
         return employee
+
+#FOR FORGOT PASSWORD AND GET TOKEN LINK AND ALLOW USER CREATE NEW PASSWORD
+
+class EmployerForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        user = User.objects.filter(email=value, is_staff=True).first()
+        if not user:
+            raise serializers.ValidationError(
+                "Employer account with this email does not exist"
+            )
+        return value
+
+
+
+class ResetPasswordConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError(
+                {"password": "Passwords do not match"}
+            )
+        return data
+
+
+
+
+class EmployerForgotPasswordOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        user = User.objects.filter(email=value, is_staff=True).first()
+        if not user:
+            raise serializers.ValidationError("Employer not found")
+        return value
+
+class ResetPasswordWithOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        if data["new_password"] != data["confirm_password"]:
+            raise serializers.ValidationError(
+                {"password": "Passwords do not match"}
+            )
+        return data
