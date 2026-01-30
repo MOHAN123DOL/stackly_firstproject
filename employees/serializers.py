@@ -17,21 +17,17 @@ class EmployerForgotPasswordSerializer(serializers.Serializer):
 
 
 class EmployeeRegistrationSerializer(serializers.ModelSerializer):
-    ROLE_CHOICES = (
-        ("employer", "Employee"),
-    )
+
     username = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True)
-    role = serializers.ChoiceField(choices=ROLE_CHOICES)
-    password = serializers.CharField(write_only=True)
-    confirm_password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True,style={"input_type": "password"})
+    confirm_password = serializers.CharField(write_only=True,style={"input_type": "password"})
 
     class Meta:
         model = Employee
         fields = [
             "username",
             "email",
-            "role",
             "company_name",
             "password",
             "confirm_password",
