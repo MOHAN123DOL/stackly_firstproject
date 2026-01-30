@@ -24,22 +24,22 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-
-from django.contrib import admin
-from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from jobseeker.views import CustomLoginAPI
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
     # JWT
-    path("login/all/", CustomLoginAPI.as_view(), name="jobseeker-login"),
+    path("jobseeker/login/all/", CustomLoginAPI.as_view(), name="jobseeker-login"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("employee/login/all/", CustomLoginAPI.as_view(), name="employee-login"),
 
     # App URLs
-    path("", include("jobseeker.urls")),
+    path("jobseeker/", include("jobseeker.urls")),
     path("api/", include("notifications.urls")),
+    path("employee/",include("employees.urls"))
 ]
 
 

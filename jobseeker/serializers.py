@@ -20,7 +20,6 @@ class JobSeekerAvatarSerializer(serializers.ModelSerializer):
 class UserRegistrationSerializer(serializers.Serializer):
     ROLE_CHOICES = (
         ("jobseeker", "Job Seeker"),
-        ("employee", "Employee"),
     )
 
     username = serializers.CharField()
@@ -55,21 +54,13 @@ class UserRegistrationSerializer(serializers.Serializer):
             email=validated_data.get("email"),
         )
 
-        # 🔹 Employee = staff user
-        if role == "employee":
-            user.is_staff = True
-
         user.set_password(validated_data["password"])
         user.save()
 
         # 🔹 Create profile based on role
         if role == "jobseeker":
             JobSeeker.objects.create(user=user)
-        else:
-            Employee.objects.create(
-                user=user,
-                company_name=""  # can be updated later
-            )
+        
 
         return user
 

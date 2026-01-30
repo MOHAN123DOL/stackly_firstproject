@@ -137,7 +137,7 @@ class JobSeekerRegistrationAPI(GenericAPIView):
         return Response(
             {
                 "message": "Registration successful. Please login.",
-                "login_url": "/api/login/",
+                "login_url": "jobseeker/login/all",
             },
             status=status.HTTP_201_CREATED,
         )

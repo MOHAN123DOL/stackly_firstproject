@@ -1,0 +1,78 @@
+from rest_framework import serializers
+from django.contrib.auth.models import User
+from .models import Employee
+
+
+class EmployerForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def validate_email(self, value):
+        user = User.objects.filter(email=value, is_staff=True).first()
+        if not user:
+            raise serializers.ValidationError(
+                "Employer account with this email does not exist"
+            )
+        return value
+
+
+
+class EmployeeRegistrationSerializer(serializers.ModelSerializer):
+    ROLE_CHOICES = (
+        ("employer", "Employee"),
+    )
+    username = serializers.CharField(write_only=True)
+    email = serializers.EmailField(write_only=True)
+    role = serializers.ChoiceField(choices=ROLE_CHOICES)
+    password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Employee
+        fields = [
+            "username",
+            "email",
+            "role",
+            "company_name",
+            "password",
+            "confirm_password",
+        ]
+
+    def validate(self, data):
+        if data["password"] != data["confirm_password"]:
+            raise serializers.ValidationError(
+                {"password": "Passwords do not match"}
+            )
+
+        if User.objects.filter(username=data["username"]).exists():
+            raise serializers.ValidationError(
+                {"username": "Username already exists"}
+            )
+
+        if User.objects.filter(email=data["email"]).exists():
+            raise serializers.ValidationError(
+                {"email": "Email already exists"}
+            )
+
+        return data
+
+    def create(self, validated_data):
+        username = validated_data.pop("username")
+        email = validated_data.pop("email")
+        password = validated_data.pop("password")
+        validated_data.pop("confirm_password")
+
+        # 🔹 Create User
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            is_staff=True  # Employee flag
+        )
+
+        # 🔹 Create Employee profile
+        employee = Employee.objects.create(
+            user=user,
+            **validated_data
+        )
+
+        return employee

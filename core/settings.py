@@ -105,6 +105,9 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# 🔐 Password reset token expiry (1 hour)
+PASSWORD_RESET_TIMEOUT = 3600
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -127,7 +130,7 @@ SIMPLE_JWT = {
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
-87
+
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
