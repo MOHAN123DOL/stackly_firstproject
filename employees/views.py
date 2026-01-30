@@ -3,16 +3,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.utils.http import urlsafe_base64_encode , urlsafe_base64_decode
-from django.utils.encoding import force_bytes , force_str
-from .serializers import EmployerForgotPasswordSerializer , EmployeeRegistrationSerializer
-
-from .serializers import ResetPasswordConfirmSerializer
+from .serializers import  EmployeeRegistrationSerializer
 
 import random
 from .models import PasswordResetOTP
 from .serializers import EmployerForgotPasswordOTPSerializer
-
+from django.utils.timezone import now
+from .serializers import ResetPasswordWithOTPSerializer
+from .models import PasswordResetOTP
 #FOR SIGNUP PAGE 
 
 class EmployeeRegistrationAPI(GenericAPIView):
@@ -36,15 +34,6 @@ class EmployeeRegistrationAPI(GenericAPIView):
 #FOR FORGOT PASSWORD AND GET TOKEN LINK AND ALLOW USER CREATE NEW PASSWORD
 
 
-
-import random
-from rest_framework.generics import GenericAPIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth.models import User
-
-from .models import PasswordResetOTP
-from .serializers import EmployerForgotPasswordOTPSerializer
 
 
 class EmployerForgotPasswordOTPAPI(GenericAPIView):
@@ -74,8 +63,7 @@ class EmployerForgotPasswordOTPAPI(GenericAPIView):
             status=status.HTTP_200_OK
         )
 
-from django.utils.timezone import now
-from .serializers import ResetPasswordWithOTPSerializer
+
 
 
 class ResetPasswordWithOTPAPI(GenericAPIView):

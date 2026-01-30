@@ -1,9 +1,9 @@
 
 from django.urls import path
-from .views import EmployeeRegistrationAPI 
 from .views import (
     EmployerForgotPasswordOTPAPI,
-    ResetPasswordWithOTPAPI
+    ResetPasswordWithOTPAPI,
+    EmployeeRegistrationAPI,
 )
 
 urlpatterns = [
@@ -15,10 +15,4 @@ urlpatterns = [
 
 ]
 
-
-
-urlpatterns = [
-    path("forgot-password/", EmployerForgotPasswordOTPAPI.as_view()),
-    path("reset-password/", ResetPasswordWithOTPAPI.as_view()),
-]
 
