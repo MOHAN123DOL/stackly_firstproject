@@ -12,9 +12,9 @@ def clear_job_cache(sender, **kwargs):
 
 
 @receiver([post_save, post_delete], sender=JobSeeker)
-def clear_jobseeker_cache(sender, **kwargs):
-    cache.delete("infocard_count_jobseekers")
-
+def clear_jobseeker_cache(sender, instance, **kwargs):
+    if not instance.is_staff:
+        cache.delete("infocard_count_jobseekers")
 
 @receiver([post_save, post_delete], sender=User)
 def clear_employer_cache(sender, instance, **kwargs):
