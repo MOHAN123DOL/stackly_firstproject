@@ -39,7 +39,8 @@ urlpatterns = [
     # App URLs
     path("jobseeker/", include("jobseeker.urls")),
     path("api/", include("notifications.urls")),
-    path("employee/",include("employees.urls"))
+    path("employee/",include("employees.urls")),
+    path("landingpages/", include("landingpages.urls"))
 ]
 
 

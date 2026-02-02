@@ -4,9 +4,7 @@ from django.contrib.auth.models import User
 from .models import JobSeeker  
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed  
-from rest_framework import serializers
 from .models import Job, UserAppliedJob ,Company , JobSeeker 
-from .models import LandingChoice
 from employees.models import Employee
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -180,13 +178,4 @@ class OpportunityCompanySerializer(serializers.ModelSerializer):
         ]
 
 
-class LandingChoiceSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LandingChoice
-        fields = [
-            "id",
-            "role",
-            "title",
-            "description",
-            "redirect_url",
-        ]
+
