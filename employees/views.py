@@ -33,9 +33,6 @@ class EmployeeRegistrationAPI(GenericAPIView):
 
 #FOR FORGOT PASSWORD AND GET TOKEN LINK AND ALLOW USER CREATE NEW PASSWORD
 
-
-
-
 class EmployerForgotPasswordOTPAPI(GenericAPIView):
     serializer_class = EmployerForgotPasswordOTPSerializer
     permission_classes = []
@@ -55,7 +52,7 @@ class EmployerForgotPasswordOTPAPI(GenericAPIView):
             otp=otp
         )
 
-        # TEMP: print OTP (replace with email later)
+       
         print("PASSWORD RESET OTP:", otp)
 
         return Response(
@@ -106,7 +103,7 @@ class ResetPasswordWithOTPAPI(GenericAPIView):
         user.set_password(new_password)
         user.save()
 
-        # Cleanup OTPs
+
         PasswordResetOTP.objects.filter(user=user).delete()
 
         return Response(
