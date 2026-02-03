@@ -9,6 +9,7 @@ class JobSeeker(models.Model):
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     education = models.TextField(blank=True)
+    title = models.CharField(max_length=200,blank=True) 
     experience = models.TextField(blank=True)
 
 

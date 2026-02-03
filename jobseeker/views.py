@@ -28,7 +28,7 @@ from rest_framework.views import APIView
 from django.db.models import Count
 from django.contrib.auth.models import User
 from employees.models import Employee
-
+from .services import get_opportunities_overview
 
 
 class JobSeekerAvatarAPI(GenericAPIView):
@@ -340,3 +340,15 @@ class JobSeekerOpportunitiesCompanyListAPI(ListAPIView):
 
 
 
+class JobSeekerOpportunitiesOverviewAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if request.user.is_staff:
+            return Response(
+                {"error": "Employers cannot access this page"},
+                status=403
+            )
+
+        data = get_opportunities_overview(request.user)
+        return Response(data, status=200)

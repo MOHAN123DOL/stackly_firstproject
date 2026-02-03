@@ -76,6 +76,7 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "education",
+            "title",
             "experience",
             "avatar",
         ]

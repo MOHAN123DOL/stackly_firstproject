@@ -1,22 +1,22 @@
-from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from jobseeker.models import Job
-from jobseeker.models import JobSeeker
-from django.contrib.auth.models import User
+from django.core.cache import cache
+from jobseeker.models import JobSeeker, UserAppliedJob, UserSavedJob
 
 
-@receiver([post_save, post_delete], sender=Job)
-def clear_job_cache(sender, **kwargs):
-    cache.delete("infocard_count_jobs")
+# 🔥 JobSeeker profile update (title change, etc.)
+@receiver(post_save, sender=JobSeeker)
+def clear_overview_on_jobseeker_update(sender, instance, **kwargs):
+    cache.delete(f"jobseeker_overview_{instance.user_id}")
 
 
-@receiver([post_save, post_delete], sender=User)
-def clear_jobseeker_cache(sender, instance, **kwargs):
-    if not instance.is_staff:
-        cache.delete("infocard_count_jobseekers")
+# 🔥 Apply / withdraw job
+@receiver([post_save, post_delete], sender=UserAppliedJob)
+def clear_overview_on_apply(sender, instance, **kwargs):
+    cache.delete(f"jobseeker_overview_{instance.user_id}")
 
-@receiver([post_save, post_delete], sender=User)
-def clear_employer_cache(sender, instance, **kwargs):
-    if instance.is_staff:
-        cache.delete("infocard_count_employers")
+
+# 🔥 Save / unsave job
+@receiver([post_save, post_delete], sender=UserSavedJob)
+def clear_overview_on_save(sender, instance, **kwargs):
+    cache.delete(f"jobseeker_overview_{instance.user_id}")
