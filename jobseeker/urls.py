@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProfileAPI , 
                     ChangePasswordAPI, JobSeekerDashboardCountAPI ,LogoutAPI,CompanyJobsAPI , 
-                    CompanyLogoUploadAPI , JobSeekerOpportunitiesCompanyListAPI ,  JobSeekerOpportunitiesOverviewAPI)
+                    CompanyLogoUploadAPI , JobSeekerOpportunitiesCompanyListAPI ,  JobSeekerOpportunitiesOverviewAPI, LandingJobListingAPI)
 urlpatterns = [
     path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -13,6 +13,8 @@ urlpatterns = [
     path("companies/<int:company_id>/upload-logo/",CompanyLogoUploadAPI.as_view(),name="company-logo-upload"),
     path("jobseeker/opportunities/companies/",JobSeekerOpportunitiesCompanyListAPI.as_view(),name="jobseeker-opportunities-companies"),
     path("opportunities/overview/",JobSeekerOpportunitiesOverviewAPI.as_view(),name="jobseeker-opportunities-overview"),
+    path("landing/jobs/", LandingJobListingAPI.as_view(),name="jobseeker-landing-joblisting"),
+
 
      ]
 

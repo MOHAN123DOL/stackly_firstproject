@@ -179,4 +179,21 @@ class OpportunityCompanySerializer(serializers.ModelSerializer):
         ]
 
 
+class LandingJobSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source="company.name", read_only=True)
+    company_location = serializers.CharField(source="company.location", read_only=True)
+
+    class Meta:
+        model = Job
+        fields = [
+            "id",
+            "role",
+            "company_name",
+            "company_location",
+            "salary_min",
+            "salary_max",
+            "duration",
+            "posted_on",
+        ]
+
 

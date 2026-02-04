@@ -38,7 +38,9 @@ class Job(models.Model):
         related_name="jobs"
     )
     role = models.CharField(max_length=200)
-    salary = models.CharField(max_length=100)
+    
+    salary_min = models.IntegerField(help_text="Minimum salary in LPA",blank=True,null=True)
+    salary_max = models.IntegerField(help_text="Maximum salary in LPA",blank=True,null=True)
     duration = models.CharField(
         max_length=50,
         help_text="Full-time / Internship / Contract"

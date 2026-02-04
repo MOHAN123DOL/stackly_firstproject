@@ -17,6 +17,7 @@ from .serializers import (
     CompanyJobSerializer,
     CompanyLogoUploadSerializer,
     OpportunityCompanySerializer,
+    LandingJobSerializer,
    
     
 )
@@ -29,6 +30,11 @@ from django.db.models import Count
 from django.contrib.auth.models import User
 from employees.models import Employee
 from .services import get_opportunities_overview
+from .pagination import LandingJobPagination
+from django.db.models.functions import Lower
+
+
+
 
 
 class JobSeekerAvatarAPI(GenericAPIView):
@@ -352,3 +358,67 @@ class JobSeekerOpportunitiesOverviewAPI(APIView):
 
         data = get_opportunities_overview(request.user)
         return Response(data, status=200)
+
+
+class LandingJobListingAPI(APIView):
+    permission_classes = [AllowAny]
+    pagination_class = LandingJobPagination
+
+    def get(self, request):
+        qs = Job.objects.select_related("company")
+
+        # 🔹 Single-value filters
+        role = request.GET.get("role")
+        salary = request.GET.get("salary")
+        company = request.GET.get("company")
+
+        # 🔹 Multi-value filters (comma-separated)
+        locations = request.GET.get("location")
+        durations = request.GET.get("duration")
+        salary_min = request.GET.get("salary_min")
+        salary_max = request.GET.get("salary_max")
+
+        if salary_min:
+            qs = qs.filter(salary_max__gte=int(salary_min))
+
+        if salary_max:
+            qs = qs.filter(salary_min__lte=int(salary_max))
+
+
+        if role:
+            qs = qs.filter(role__icontains=role)
+
+        if salary:
+            qs = qs.filter(salary__icontains=salary)
+
+        if company:
+            company_list = [c.strip() for c in company.split(",")]
+            qs = qs.filter(company__name__in=company_list)
+
+        if locations:
+            location_list = [l.strip().lower() for l in locations.split(",")]
+            qs = qs.annotate(
+            location_lower=Lower("company__location")
+            ).filter(location_lower__in=location_list)
+
+        if durations:
+            duration_list = [d.strip().lower() for d in durations.split(",")]
+            qs = qs.annotate(
+                duration_lower=Lower("duration")
+            ).filter(duration_lower__in=duration_list)
+
+        # 🔹 Sort latest first
+        qs = qs.order_by("-posted_on")
+
+        # 🔹 Pagination
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(qs, request)
+
+        serializer = LandingJobSerializer(page, many=True)
+
+        return paginator.get_paginated_response({
+            "total_jobs": qs.count(),
+            "jobs": serializer.data
+        })
+
+
