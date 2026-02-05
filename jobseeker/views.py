@@ -18,9 +18,11 @@ from .serializers import (
     CompanyLogoUploadSerializer,
     OpportunityCompanySerializer,
     LandingJobSerializer,
+    ApplyJobSerializer,
    
     
 )
+from django.shortcuts import get_object_or_404
 from notifications.utils import create_notification
 from notifications.models import Notification
 from django.utils.timezone import now
@@ -422,3 +424,61 @@ class LandingJobListingAPI(APIView):
         })
 
 
+class ApplyJobAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        job_id = request.data.get("job_id")
+        job = get_object_or_404(Job, id=job_id)
+
+        # prevent duplicate apply
+        if UserAppliedJob.objects.filter(
+            user=request.user,
+            job=job
+        ).exists():
+            return Response(
+                {"detail": "Already applied"},
+                status=400
+            )
+
+        UserAppliedJob.objects.create(
+            user=request.user,
+            job=job
+        )
+
+        return Response(
+            {"detail": "Job applied successfully"},
+            status=201
+        )
+#for apply job 
+
+class ApplyJobAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ApplyJobSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        job_id = serializer.validated_data["job_id"]
+        job = get_object_or_404(Job, id=job_id)
+
+        # ❌ prevent duplicate application
+        if UserAppliedJob.objects.filter(
+            user=request.user,
+            job=job
+        ).exists():
+            return Response(
+                {"detail": "Already applied"},
+                status=400
+            )
+
+        # ✅ create application
+        UserAppliedJob.objects.create(
+            user=request.user,
+            job=job
+        )
+
+        return Response(
+            {"detail": "Job applied successfully"},
+            status=201
+        )

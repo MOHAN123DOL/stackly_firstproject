@@ -195,5 +195,7 @@ class LandingJobSerializer(serializers.ModelSerializer):
             "duration",
             "posted_on",
         ]
+#for apply jobs
 
-
+class ApplyJobSerializer(serializers.Serializer):
+    job_id = serializers.IntegerField()

@@ -40,7 +40,8 @@ urlpatterns = [
     path("jobseeker/", include("jobseeker.urls")),
     path("api/", include("notifications.urls")),
     path("employee/",include("employees.urls")),
-    path("landingpages/", include("landingpages.urls"))
+    path("landingpages/", include("landingpages.urls")),
+    path("api/chat/", include("chat.urls")),
 ]
 
 

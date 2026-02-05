@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.timezone import now, timedelta
+from jobseeker.models import Company
 
 class Employee(models.Model):
     user = models.OneToOneField(
@@ -8,7 +9,11 @@ class Employee(models.Model):
         on_delete=models.CASCADE,
         related_name="employee_profile"
     )
-    company_name = models.CharField(max_length=200)
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="employees"
+    )
     designation = models.CharField(max_length=100, blank=True)
     phone = models.CharField(max_length=15, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
