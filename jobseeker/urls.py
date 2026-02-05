@@ -1,11 +1,13 @@
 from django.urls import path
 from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProfileAPI , 
                     ChangePasswordAPI, JobSeekerDashboardCountAPI ,LogoutAPI,CompanyJobsAPI , 
-                    CompanyLogoUploadAPI , JobSeekerOpportunitiesCompanyListAPI ,  JobSeekerOpportunitiesOverviewAPI, LandingJobListingAPI,ApplyJobAPIView)
+                    CompanyLogoUploadAPI , JobSeekerOpportunitiesCompanyListAPI ,  JobSeekerOpportunitiesOverviewAPI,
+                     LandingJobListingAPI,ApplyJobAPIView , JobAlertCreateAPIView , JobAlertListAPIView, 
+                     JobAlertDetailAPIView, JobAlertMatchesAPIView,JobAlertNewCountAPIView,)
 urlpatterns = [
     path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
-    path("jobseeker/profile/", JobSeekerProfileAPI.as_view(), name="jobseeker-profile"),
+    path("profile/", JobSeekerProfileAPI.as_view(), name="jobseeker-profile"),
     path("api/change-password/", ChangePasswordAPI.as_view(), name="change-password"),
     path("jobseeker/dashboard/counts/",JobSeekerDashboardCountAPI.as_view(),name="jobseeker-dashboard-counts"),
     path("api/logout/", LogoutAPI.as_view(), name="logout"),
@@ -14,7 +16,13 @@ urlpatterns = [
     path("jobseeker/opportunities/companies/",JobSeekerOpportunitiesCompanyListAPI.as_view(),name="jobseeker-opportunities-companies"),
     path("opportunities/overview/",JobSeekerOpportunitiesOverviewAPI.as_view(),name="jobseeker-opportunities-overview"),
     path("landing/jobs/", LandingJobListingAPI.as_view(),name="jobseeker-landing-joblisting"),
-     path("jobs/apply/", ApplyJobAPIView.as_view(), name="apply-job"),
+    path("jobs/apply/", ApplyJobAPIView.as_view(), name="apply-job"),
+    path("job-alerts/create/",JobAlertCreateAPIView.as_view(),name="job-alert-create"),
+    path("job-alerts/", JobAlertListAPIView.as_view(), name="job-alert-list"),
+    path("job-alerts/<int:pk>/",JobAlertDetailAPIView.as_view(),name="job-alert-detail"),
+    path("job-alerts/<int:alert_id>/matches/",JobAlertMatchesAPIView.as_view(),name="job-alert-matches"),
+    path("job-alerts/<int:alert_id>/new-count/",JobAlertNewCountAPIView.as_view(),name="job-alert-new-count"),
+    
 
 
      ]

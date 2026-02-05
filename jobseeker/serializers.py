@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from .models import JobSeeker  
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed  
-from .models import Job, UserAppliedJob ,Company , JobSeeker 
+from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert
 from employees.models import Employee
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -64,8 +64,6 @@ class UserRegistrationSerializer(serializers.Serializer):
 
 
 
-
-
 class JobSeekerProfileSerializer(serializers.ModelSerializer):
     welcome = serializers.SerializerMethodField()
 
@@ -77,7 +75,7 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "education",
             "title",
-            "experience",
+            "total_experience",
             "avatar",
         ]
 
@@ -86,6 +84,11 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return f"Welcome {request.user.username}"
         return "Welcome"
+
+
+
+
+
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -199,3 +202,41 @@ class LandingJobSerializer(serializers.ModelSerializer):
 
 class ApplyJobSerializer(serializers.Serializer):
     job_id = serializers.IntegerField()
+
+#FOR CREATE JOBALERT IF ROLE NOT ENTERED WE NEED TO TAKE FROM PROFILE TITLE
+
+class JobAlertSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        if not data.get("role"):
+            request = self.context.get("request")
+            if request and request.user.is_authenticated:
+                try:
+                    jobseeker = JobSeeker.objects.get(user=request.user)
+                    if jobseeker.title:
+                        data["role"] = jobseeker.title
+                except JobSeeker.DoesNotExist:
+                    pass
+
+        
+        if not data.get("role"):
+            raise serializers.ValidationError({
+                "role": "Role is required or JobSeeker title must exist."
+            })
+
+        return data
+
+    class Meta:
+        model = JobAlert
+        fields = [
+            "id",
+            "role",
+            "locations",
+            "duration",
+            "min_salary",
+            "max_salary",
+            "is_active",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Employee
-
+from jobseeker.models import Job
 
 
 #FOR SIGNUP PAGE 
@@ -85,4 +85,41 @@ class ResetPasswordWithOTPSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"password": "Passwords do not match"}
             )
+        return data
+
+
+
+class JobCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Job
+        fields = [
+            "id",
+            "company",
+            "role",
+            "salary_min",
+            "salary_max",
+            "duration",
+        ]
+        read_only_fields = ["id"]
+
+    def validate(self, data):
+        salary_min = data.get("salary_min")
+        salary_max = data.get("salary_max")
+
+        # salary must start from 2 LPA
+        if salary_min is not None and salary_min < 2:
+            raise serializers.ValidationError(
+                {"salary_min": "Minimum salary must be at least 2 LPA."}
+            )
+
+        if salary_max is not None and salary_max < 2:
+            raise serializers.ValidationError(
+                {"salary_max": "Maximum salary must be at least 2 LPA."}
+            )
+
+        if salary_min and salary_max and salary_max < salary_min:
+            raise serializers.ValidationError(
+                {"salary_max": "Maximum salary must be greater than or equal to minimum salary."}
+            )
+
         return data

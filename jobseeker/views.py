@@ -1,4 +1,4 @@
-from rest_framework.generics import GenericAPIView , ListAPIView
+from rest_framework.generics import GenericAPIView , ListAPIView , CreateAPIView , RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
@@ -7,7 +7,7 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
-from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job 
+from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert
 from .serializers import (
     JobSeekerAvatarSerializer,
     UserRegistrationSerializer,
@@ -19,6 +19,7 @@ from .serializers import (
     OpportunityCompanySerializer,
     LandingJobSerializer,
     ApplyJobSerializer,
+    JobAlertSerializer,
    
     
 )
@@ -34,7 +35,7 @@ from employees.models import Employee
 from .services import get_opportunities_overview
 from .pagination import LandingJobPagination
 from django.db.models.functions import Lower
-
+from .utils import match_jobs
 
 
 
@@ -156,25 +157,41 @@ class CustomLoginAPI(TokenObtainPairView):
 
 
 
+
 class JobSeekerProfileAPI(GenericAPIView):
     serializer_class = JobSeekerProfileSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request):
-        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+        jobseeker, _ = JobSeeker.objects.get_or_create(
+            user=request.user
+        )
         serializer = self.get_serializer(jobseeker)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request):
-        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+        jobseeker, _ = JobSeeker.objects.get_or_create(
+            user=request.user
+        )
 
-        serializer = self.get_serializer(jobseeker, data=request.data)
+        serializer = self.get_serializer(
+            jobseeker,
+            data=request.data,
+            partial=True   
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        create_notification(request.user, "Profile updated successfully")
-        return Response(serializer.data)
+        create_notification(
+            request.user,
+            "Profile updated successfully"
+        )
+
+        return Response(
+            serializer.data,
+            status=status.HTTP_200_OK
+        )
 
 
 class ChangePasswordAPI(GenericAPIView):
@@ -482,3 +499,87 @@ class ApplyJobAPIView(APIView):
             {"detail": "Job applied successfully"},
             status=201
         )
+
+#for job alert crud 
+class JobAlertCreateAPIView(CreateAPIView):
+    serializer_class = JobAlertSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_context(self):
+        # pass request to serializer (needed for auto-fill role)
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def perform_create(self, serializer):
+        # user is always taken from token/session, not from payload
+        serializer.save(user=self.request.user)
+
+class JobAlertListAPIView(ListAPIView):
+    serializer_class = JobAlertSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return JobAlert.objects.filter(user=self.request.user).order_by("-created_at")
+
+
+
+class JobAlertDetailAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = JobAlertSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # user-scoped queryset = security
+        return JobAlert.objects.filter(user=self.request.user)
+
+#for match and new alert
+
+class JobAlertMatchesAPIView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LandingJobSerializer
+
+    def get(self, request, alert_id):
+        alert = get_object_or_404(
+            JobAlert,
+            id=alert_id,
+            user=request.user,
+            is_active=True
+        )
+        jobs = match_jobs(alert)
+
+        # user has now READ the alert
+        alert.last_read_at = now()
+        alert.save(update_fields=["last_read_at"])
+
+        serializer = self.get_serializer(jobs, many=True)
+
+        return Response({
+            "alert_id": alert.id,
+            "matched_jobs_count": jobs.count(),
+            "matched_jobs": serializer.data
+        })
+    
+class JobAlertNewCountAPIView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LandingJobSerializer
+    def get(self, request, alert_id):
+        alert = get_object_or_404(
+            JobAlert,
+            id=alert_id,
+            user=request.user,
+            is_active=True
+        )
+        jobs = match_jobs(alert)
+
+        if alert.last_read_at:
+            jobs = jobs.filter(posted_on__gt=alert.last_read_at)
+
+        serializer = self.get_serializer(jobs, many=True)
+
+        return Response({
+            "alert_id": alert.id,
+            "new_matching_jobs_count": jobs.count(),
+            "matched_jobs": serializer.data
+
+        })
+

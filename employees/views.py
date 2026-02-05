@@ -4,7 +4,10 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from .serializers import  EmployeeRegistrationSerializer
-
+from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from jobseeker.models import Job
+from .serializers import JobCreateSerializer
 import random
 from .models import PasswordResetOTP
 from .serializers import EmployerForgotPasswordOTPSerializer
@@ -110,3 +113,10 @@ class ResetPasswordWithOTPAPI(GenericAPIView):
             {"message": "Password reset successful. Please login."},
             status=status.HTTP_200_OK
         )
+
+
+
+class JobCreateAPIView(CreateAPIView):
+    queryset = Job.objects.all()
+    serializer_class = JobCreateSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
