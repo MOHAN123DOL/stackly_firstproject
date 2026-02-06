@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Employee
-from jobseeker.models import Job
+from jobseeker.models import Job , JobCategory
 
 
 #FOR SIGNUP PAGE 
@@ -89,12 +89,18 @@ class ResetPasswordWithOTPSerializer(serializers.Serializer):
 
 
 
+
 class JobCreateSerializer(serializers.ModelSerializer):
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=JobCategory.objects.filter(is_active=True)
+    )
+
     class Meta:
         model = Job
         fields = [
             "id",
             "company",
+            "category",       
             "role",
             "salary_min",
             "salary_max",
@@ -123,3 +129,18 @@ class JobCreateSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+
+
+class JobCategorySerializer(serializers.ModelSerializer):
+    jobs_count = serializers.IntegerField(read_only=True)
+    class Meta:
+        model = JobCategory
+        fields = [
+            "id",
+            "name",
+            "is_active",
+            "created_at",
+            "jobs_count"
+        ]
+        read_only_fields = ["id", "created_at"]

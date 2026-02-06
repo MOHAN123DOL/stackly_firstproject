@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from .models import JobSeeker  
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed  
-from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert
+from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCategory
 from employees.models import Employee
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -240,3 +240,32 @@ class JobAlertSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at"]
+
+
+class JobCategoryListSerializer(serializers.ModelSerializer):
+    jobs_count = serializers.IntegerField(read_only=True)
+    user = serializers.IntegerField(read_only=True)
+    class Meta:
+        model = JobCategory
+        fields = [
+            "id",
+            "name",
+            "is_active",
+            "created_at",
+            "jobs_count",
+            "user"
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
+class JobcatSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Job
+        fields = [
+            "id",
+            "role",
+            "salary_min",
+            "salary_max",
+            "duration",
+            "posted_on",
+        ]

@@ -3,7 +3,7 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                     ChangePasswordAPI, JobSeekerDashboardCountAPI ,LogoutAPI,CompanyJobsAPI , 
                     CompanyLogoUploadAPI , JobSeekerOpportunitiesCompanyListAPI ,  JobSeekerOpportunitiesOverviewAPI,
                      LandingJobListingAPI,ApplyJobAPIView , JobAlertCreateAPIView , JobAlertListAPIView, 
-                     JobAlertDetailAPIView, JobAlertMatchesAPIView,JobAlertNewCountAPIView,)
+                     JobAlertDetailAPIView, JobAlertMatchesAPIView,JobAlertNewCountAPIView,JobCategoryListAPIView, JobCategoryAPI)
 urlpatterns = [
     path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -22,6 +22,8 @@ urlpatterns = [
     path("job-alerts/<int:pk>/",JobAlertDetailAPIView.as_view(),name="job-alert-detail"),
     path("job-alerts/<int:alert_id>/matches/",JobAlertMatchesAPIView.as_view(),name="job-alert-matches"),
     path("job-alerts/<int:alert_id>/new-count/",JobAlertNewCountAPIView.as_view(),name="job-alert-new-count"),
+    path( "job-categories/list/",JobCategoryListAPIView.as_view(), name="job-category-lists"), 
+    path("job-categories/list/<int:category_id>/",JobCategoryAPI.as_view(),name="job-category-jobs"),
     
 
 

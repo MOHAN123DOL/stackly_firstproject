@@ -4,7 +4,7 @@ from .views import (
     EmployerForgotPasswordOTPAPI,
     ResetPasswordWithOTPAPI,
     EmployeeRegistrationAPI,
-    JobCreateAPIView
+    JobCreateAPIView , JobCategoryCreateAPIView ,JobCategoryAPIView
 )
 
 urlpatterns = [
@@ -13,7 +13,9 @@ urlpatterns = [
      path("forgot-password/", EmployerForgotPasswordOTPAPI.as_view()),
     path("reset-password/", ResetPasswordWithOTPAPI.as_view()),
     path("jobs/create/",JobCreateAPIView.as_view(),name="job-create"),
-     
+    path( "job-categories/create/",JobCategoryCreateAPIView.as_view(), name="job-category-create"),
+    path("job-categories/<int:pk>/",JobCategoryAPIView.as_view(),name="job-category-detail"),
+    
 
 ]
 

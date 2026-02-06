@@ -32,7 +32,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
 
     # JWT
-    path("jobseeker/login/all/", CustomLoginAPI.as_view(), name="jobseeker-login"),
+    path("login/all/", CustomLoginAPI.as_view(), name="jobseeker-login"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("employee/login/all/", CustomLoginAPI.as_view(), name="employee-login"),
 

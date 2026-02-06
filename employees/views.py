@@ -1,19 +1,17 @@
-from rest_framework.generics import GenericAPIView
+from rest_framework.generics import GenericAPIView ,CreateAPIView , ListAPIView ,RetrieveUpdateDestroyAPIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from .serializers import  EmployeeRegistrationSerializer
-from rest_framework.generics import CreateAPIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from jobseeker.models import Job
-from .serializers import JobCreateSerializer
+from jobseeker.models import Job , JobCategory
 import random
 from .models import PasswordResetOTP
-from .serializers import EmployerForgotPasswordOTPSerializer
 from django.utils.timezone import now
-from .serializers import ResetPasswordWithOTPSerializer
-from .models import PasswordResetOTP
+from .serializers import (ResetPasswordWithOTPSerializer , JobCategorySerializer 
+                          , EmployeeRegistrationSerializer ,EmployerForgotPasswordOTPSerializer ,JobCreateSerializer, )
+from django.db.models import Count
+from rest_framework.views import APIView
 #FOR SIGNUP PAGE 
 
 class EmployeeRegistrationAPI(GenericAPIView):
@@ -120,3 +118,17 @@ class JobCreateAPIView(CreateAPIView):
     queryset = Job.objects.all()
     serializer_class = JobCreateSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
+
+#for job category crud
+
+class JobCategoryCreateAPIView(CreateAPIView):
+    queryset = JobCategory.objects.all()
+    serializer_class = JobCategorySerializer
+    permission_classes = [IsAuthenticated , IsAdminUser]
+
+class JobCategoryAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = JobCategorySerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    queryset = JobCategory.objects.all()
+
+

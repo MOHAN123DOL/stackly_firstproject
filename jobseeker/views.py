@@ -7,7 +7,7 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
-from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert
+from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory
 from .serializers import (
     JobSeekerAvatarSerializer,
     UserRegistrationSerializer,
@@ -20,6 +20,8 @@ from .serializers import (
     LandingJobSerializer,
     ApplyJobSerializer,
     JobAlertSerializer,
+    JobcatSerializer,
+    JobCategoryListSerializer
    
     
 )
@@ -441,32 +443,6 @@ class LandingJobListingAPI(APIView):
         })
 
 
-class ApplyJobAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        job_id = request.data.get("job_id")
-        job = get_object_or_404(Job, id=job_id)
-
-        # prevent duplicate apply
-        if UserAppliedJob.objects.filter(
-            user=request.user,
-            job=job
-        ).exists():
-            return Response(
-                {"detail": "Already applied"},
-                status=400
-            )
-
-        UserAppliedJob.objects.create(
-            user=request.user,
-            job=job
-        )
-
-        return Response(
-            {"detail": "Job applied successfully"},
-            status=201
-        )
 #for apply job 
 
 class ApplyJobAPIView(APIView):
@@ -531,7 +507,8 @@ class JobAlertDetailAPIView(RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         # user-scoped queryset = security
         return JobAlert.objects.filter(user=self.request.user)
-
+    
+    
 #for match and new alert
 
 class JobAlertMatchesAPIView(GenericAPIView):
@@ -583,3 +560,39 @@ class JobAlertNewCountAPIView(GenericAPIView):
 
         })
 
+
+
+
+class JobCategoryListAPIView(ListAPIView):
+    serializer_class = JobCategoryListSerializer
+    
+    def get_queryset(self):
+        return JobCategory.objects.annotate(jobs_count=Count("jobs_category")).filter(is_active=True)
+
+
+
+
+class JobCategoryAPI(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = LandingJobPagination
+
+    def get(self, request, category_id):
+        jobcategory = get_object_or_404(JobCategory, id=category_id)
+
+        queryset = (
+            Job.objects
+            .filter(category=jobcategory)
+            .order_by("-posted_on")
+        )
+        
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = JobcatSerializer(page, many=True)
+
+        return paginator.get_paginated_response({
+            "category_id": jobcategory.id,
+            "category_name": jobcategory.name,
+            "total_jobs": paginator.page.paginator.count,
+            "jobs": serializer.data,
+        })
