@@ -269,3 +269,17 @@ class JobcatSerializer(serializers.ModelSerializer):
             "duration",
             "posted_on",
         ]
+
+class ResumeUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobSeeker
+        fields = ["resume"]
+
+    def validate_resume(self, value):
+        if value.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("Resume size must be under 5MB.")
+
+        if not value.name.endswith((".pdf", ".doc", ".docx")):
+            raise serializers.ValidationError("Only PDF or DOC files are allowed.")
+
+        return value

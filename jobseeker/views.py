@@ -37,7 +37,8 @@ from employees.models import Employee
 from .services import get_opportunities_overview
 from .pagination import LandingJobPagination
 from django.db.models.functions import Lower
-from .utils import match_jobs
+from .utils.Matching import match_jobs
+from .serializers import ResumeUploadSerializer
 
 
 
@@ -596,3 +597,32 @@ class JobCategoryAPI(APIView):
             "total_jobs": paginator.page.paginator.count,
             "jobs": serializer.data,
         })
+
+# get jobseeker resume and get detail in resume and autofill
+
+class ResumeUploadAPIView(GenericAPIView):
+    serializer_class = ResumeUploadSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self, request):
+        # 1️⃣ Get or create jobseeker profile
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+
+        # 2️⃣ Save resume file
+        serializer = self.get_serializer(
+            jobseeker,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # 6️⃣ Final response
+        return Response(
+            {
+                "detail": "Resume uploaded successfully",
+                "resume": jobseeker.resume.url if jobseeker.resume else None,
+            },
+            status=status.HTTP_200_OK
+        )

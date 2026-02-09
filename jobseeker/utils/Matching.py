@@ -1,5 +1,5 @@
 from django.db.models import Q
-from .models import Job
+from jobseeker.models import Job
 
 
 def match_jobs(alert):
