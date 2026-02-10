@@ -12,7 +12,7 @@ def parse_resume_with_rapidapi(file_path: str) -> dict:
 
     try:
         with open(file_path, "rb") as f:
-            files = {"resume": f}   # ✅ FIXED HERE
+            files = {"resume": f}   
 
             response = requests.post(
                 RAPIDAPI_URL,
