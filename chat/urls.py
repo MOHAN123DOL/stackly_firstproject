@@ -3,7 +3,8 @@ from .views import (
     OpenChatAPIView,
     SendMessageAPIView,
     MessageListAPIView,
-    MarkMessagesReadAPIView
+
+    InboxAPIView
 )
 
 urlpatterns = [
@@ -13,5 +14,6 @@ urlpatterns = [
         "conversation/<int:conversation_id>/messages/",
         MessageListAPIView.as_view()
     ),
-    path("read/", MarkMessagesReadAPIView.as_view()),
+    path("inbox/", InboxAPIView.as_view(), name="chat-inbox"),
 ]
+

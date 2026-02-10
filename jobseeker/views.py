@@ -25,6 +25,7 @@ from .serializers import (
    
     
 )
+from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from notifications.utils import create_notification
 from notifications.models import Notification
@@ -446,32 +447,32 @@ class LandingJobListingAPI(APIView):
 
 #for apply job 
 
-class ApplyJobAPIView(APIView):
+
+class ApplyJobAPIView(CreateAPIView):
+    serializer_class = ApplyJobSerializer
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        serializer = ApplyJobSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+    def perform_create(self, serializer):
+        job = get_object_or_404(
+            Job,
+            id=serializer.validated_data["job_id"]
+        )
 
-        job_id = serializer.validated_data["job_id"]
-        job = get_object_or_404(Job, id=job_id)
-
-        # ❌ prevent duplicate application
+        # Prevent duplicate application
         if UserAppliedJob.objects.filter(
-            user=request.user,
+            user=self.request.user,
             job=job
         ).exists():
-            return Response(
-                {"detail": "Already applied"},
-                status=400
-            )
+            raise ValidationError({"detail": "Already applied"})
 
-        # ✅ create application
-        UserAppliedJob.objects.create(
-            user=request.user,
+        # Create application
+        self.application = UserAppliedJob.objects.create(
+            user=self.request.user,
             job=job
         )
 
+    def create(self, request, *args, **kwargs):
+        super().create(request, *args, **kwargs)
         return Response(
             {"detail": "Job applied successfully"},
             status=201

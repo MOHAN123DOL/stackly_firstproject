@@ -1,5 +1,6 @@
 from rest_framework.views import APIView
-from rest_framework.generics import GenericAPIView , ListAPIView
+from rest_framework.generics import GenericAPIView , ListAPIView , CreateAPIView
+from rest_framework.exceptions import PermissionDenied 
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
@@ -8,54 +9,46 @@ from jobseeker.models import Job, UserAppliedJob
 from employees.models import Employee
 
 from .models import Conversation, ConversationParticipant, Message
-from .serializers import OpenChatSerializer, MessageSerializer
+from .serializers import OpenChatSerializer, MessageSerializer , SendMessageSerializer  , InboxSerializer
 from .utils import can_user_chat
 
 
 
 
-
-class OpenChatAPIView(APIView):
+class OpenChatAPIView(CreateAPIView):
+    serializer_class = OpenChatSerializer
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        # -------- VALIDATE INPUT --------
-        serializer = OpenChatSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
+    def perform_create(self, serializer):
         job = get_object_or_404(
             Job,
             id=serializer.validated_data["job_id"]
         )
 
-        # -------- ROLE CHECKS --------
+        # Role checks
         is_employee = (
-            hasattr(request.user, "employee_profile") and
-            request.user.employee_profile.company == job.company
+            hasattr(self.request.user, "employee_profile") and
+            self.request.user.employee_profile.company == job.company
         )
 
-        has_applied = can_user_chat(request.user, job)
+        has_applied = can_user_chat(self.request.user, job)
 
-        # -------- ACCESS CONTROL --------
         if not is_employee and not has_applied:
-            return Response(
-                {"detail": "Chat not allowed"},
-                status=403
-            )
+            raise PermissionDenied("Chat not allowed")
 
-        # -------- GET OR CREATE CONVERSATION --------
+        # Get or create conversation
         conversation, _ = Conversation.objects.get_or_create(
             job=job
         )
 
-        # -------- ALWAYS ADD CURRENT USER --------
+        # Add current user
         ConversationParticipant.objects.get_or_create(
             conversation=conversation,
-            user=request.user,
+            user=self.request.user,
             role="EMPLOYER" if is_employee else "JOBSEEKER"
         )
 
-        # -------- ENSURE ALL EMPLOYERS ARE PRESENT --------
+        # Add all employees
         employees = Employee.objects.filter(company=job.company)
 
         for emp in employees:
@@ -65,50 +58,44 @@ class OpenChatAPIView(APIView):
                 role="EMPLOYER"
             )
 
+        self.conversation = conversation
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
         return Response(
-            {"conversation_id": conversation.id},
+            {"conversation_id": self.conversation.id},
             status=200
         )
 
 
-class SendMessageAPIView(APIView):
+class SendMessageAPIView(CreateAPIView):
+    serializer_class = SendMessageSerializer
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        conversation_id = request.data.get("conversation_id")
-        text = request.data.get("text")
-
-        if not text:
-            return Response(
-                {"detail": "Message text required"},
-                status=400
-            )
-
+    def perform_create(self, serializer):
         conversation = get_object_or_404(
             Conversation,
-            id=conversation_id
+            id=serializer.validated_data["conversation_id"]
         )
 
-        # ---- PARTICIPANT CHECK ----
         if not conversation.participants.filter(
-            user=request.user
+            user=self.request.user
         ).exists():
-            return Response(
-                {"detail": "Not allowed"},
-                status=403
-            )
+            raise PermissionDenied("Not allowed")
 
-        message = Message.objects.create(
+        self.message = Message.objects.create(
             conversation=conversation,
-            sender=request.user,
-            text=text
+            sender=self.request.user,
+            text=serializer.validated_data["text"]
         )
 
+    def create(self, request, *args, **kwargs):
+        super().create(request, *args, **kwargs)
         return Response(
-            MessageSerializer(message).data,
+            MessageSerializer(self.message).data,
             status=201
         )
-
+         
 class MessageListAPIView(ListAPIView):
     serializer_class = MessageSerializer
     pagination_class = MessagePagination
@@ -120,47 +107,55 @@ class MessageListAPIView(ListAPIView):
             id=self.kwargs["conversation_id"]
         )
 
+        # Check participant
         if not conversation.participants.filter(
             user=self.request.user
         ).exists():
             return Message.objects.none()
 
-        return conversation.messages.all()
-
-
-class MarkMessagesReadAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        conversation_id = request.data.get("conversation_id")
-
-        if not conversation_id:
-            return Response(
-                {"detail": "conversation_id is required"},
-                status=400
-            )
-
-        conversation = get_object_or_404(
-            Conversation,
-            id=conversation_id
-        )
-
-        # ---- SECURITY: ensure user is participant ----
-        if not conversation.participants.filter(
-            user=request.user
-        ).exists():
-            return Response(
-                {"detail": "Not allowed"},
-                status=403
-            )
-
-        # ---- MARK ONLY THIS CONVERSATION AS READ ----
+        # 🔥 Mark messages as read automatically
         Message.objects.filter(
             conversation=conversation,
             is_read=False
-        ).exclude(sender=request.user).update(is_read=True)
+        ).exclude(
+            sender=self.request.user
+        ).update(is_read=True)
 
-        return Response(
-            {"detail": "Messages marked as read"},
-            status=200
-        )
+        # Return all messages
+        return conversation.messages.all()
+
+
+
+class InboxAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        conversations = Conversation.objects.filter(
+            participants__user=user
+        ).distinct()
+
+        inbox = []
+
+        for conversation in conversations:
+            last_message = conversation.messages.order_by("-created_at").first()
+            if not last_message:
+                continue
+
+            unread_count = conversation.messages.filter(
+                is_read=False
+            ).exclude(sender=user).count()
+
+            inbox.append({
+                "conversation_id": conversation.id,
+                "job_id": conversation.job.id,
+                "job_title": conversation.job.role,
+                "last_message": last_message.text,
+                "last_message_time": last_message.created_at,
+                "unread_count": unread_count
+            })
+
+        inbox.sort(key=lambda x: x["last_message_time"], reverse=True)
+
+        return Response(inbox)
