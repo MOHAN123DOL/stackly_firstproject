@@ -7,7 +7,7 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
-from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory
+from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill
 from .serializers import (
     JobSeekerAvatarSerializer,
     UserRegistrationSerializer,
@@ -39,7 +39,7 @@ from .pagination import LandingJobPagination
 from django.db.models.functions import Lower
 from .utils.Matching import match_jobs
 from .serializers import ResumeUploadSerializer
-
+from.utils.resume_apyhub import parse_resume_with_rapidapi
 
 
 
@@ -606,10 +606,9 @@ class ResumeUploadAPIView(GenericAPIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def put(self, request):
-        # 1️⃣ Get or create jobseeker profile
+
         jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
 
-        # 2️⃣ Save resume file
         serializer = self.get_serializer(
             jobseeker,
             data=request.data,
@@ -618,11 +617,61 @@ class ResumeUploadAPIView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # 6️⃣ Final response
+        parsed_data = {}
+        profile_updated = False
+
+        if jobseeker.resume:
+            parsed_data = parse_resume_with_rapidapi(jobseeker.resume.path)
+            data = parsed_data.get("data", {})
+
+            if data:
+                # 🔹 Name
+                name = data.get("name")
+                if name and not jobseeker.first_name:
+                    parts = name.split()
+                    jobseeker.first_name = parts[0]
+                    jobseeker.last_name = parts[-1] if len(parts) > 1 else ""
+                    profile_updated = True
+
+                # 🔹 Education
+                education_list = data.get("education", [])
+                if education_list and not jobseeker.education:
+                    degrees = [
+                        edu.get("degree")
+                        for edu in education_list
+                        if edu.get("degree")
+                    ]
+                    jobseeker.education = ", ".join(degrees)
+                    profile_updated = True
+
+                # 🔹 Job Title
+                experience_list = data.get("experience", [])
+                if experience_list and not jobseeker.title:
+                    jobseeker.title = experience_list[0].get("title", "")
+                    profile_updated = True
+
+                # 🔹 Skills (ManyToMany)
+                skills_list = data.get("skills", [])
+                if skills_list:
+                    for skill_name in skills_list:
+                        skill_obj, _ = Skill.objects.get_or_create(
+                            name=skill_name.strip()
+                        )
+                        jobseeker.skills.add(skill_obj)
+
+                    profile_updated = True
+
+                if profile_updated:
+                    jobseeker.save()
+
         return Response(
             {
                 "detail": "Resume uploaded successfully",
                 "resume": jobseeker.resume.url if jobseeker.resume else None,
+                "profile_updated": profile_updated,
+                "parsed_data": parsed_data
             },
             status=status.HTTP_200_OK
         )
+    
+

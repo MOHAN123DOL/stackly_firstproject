@@ -14,6 +14,10 @@ from pathlib import Path
 
 from datetime import timedelta
 
+import os
+from dotenv import load_dotenv
+
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -88,6 +92,13 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+load_dotenv()
+AFFINDA_API_KEY = os.getenv("AFFINDA_API_KEY")
+AFFINDA_WORKSPACE_ID = os.getenv("AFFINDA_WORKSPACE_ID")
+AFFINDA_DOCUMENT_TYPE_ID = os.getenv("AFFINDA_DOCUMENT_TYPE_ID")
+RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

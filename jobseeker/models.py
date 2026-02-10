@@ -1,6 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
+class Skill(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
 class JobSeeker(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
@@ -9,6 +16,11 @@ class JobSeeker(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
+    skills = models.ManyToManyField(
+        Skill,
+        blank=True,
+        related_name="jobseekers"
+    )
     education = models.TextField(blank=True)
     title = models.CharField(
         max_length=200,
