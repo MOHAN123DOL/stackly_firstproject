@@ -28,10 +28,6 @@ class JobSeeker(models.Model):
         help_text="Desired job role (e.g. Backend Developer)"
     )
 
-    total_experience = models.PositiveIntegerField(
-        default=0,
-        help_text="Total experience in years"
-    )
 
 
     def __str__(self):

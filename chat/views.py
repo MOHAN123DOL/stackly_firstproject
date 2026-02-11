@@ -7,48 +7,71 @@ from django.shortcuts import get_object_or_404
 from .pagination import MessagePagination
 from jobseeker.models import Job, UserAppliedJob
 from employees.models import Employee
-
+from django.db import transaction
 from .models import Conversation, ConversationParticipant, Message
 from .serializers import OpenChatSerializer, MessageSerializer , SendMessageSerializer  , InboxSerializer
-from .utils import can_user_chat
+from django.contrib.auth.models import User
 
 
 
-
-class OpenChatAPIView(CreateAPIView):
+class OpenChatAPIView(GenericAPIView):
     serializer_class = OpenChatSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        job = get_object_or_404(
-            Job,
-            id=serializer.validated_data["job_id"]
-        )
+    @transaction.atomic
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        # Role checks
-        is_employee = (
-            hasattr(self.request.user, "employee_profile") and
-            self.request.user.employee_profile.company == job.company
-        )
+        job = serializer.validated_data["job"]
+        jobseeker_user = serializer.validated_data.get("jobseeker")
 
-        has_applied = can_user_chat(self.request.user, job)
+        user = request.user
 
-        if not is_employee and not has_applied:
-            raise PermissionDenied("Chat not allowed")
+        # -----------------------------------
+        # JOBSEEKER FLOW
+        # -----------------------------------
+        if not hasattr(user, "employee_profile"):
 
-        # Get or create conversation
+            if not UserAppliedJob.objects.filter(
+                user=user,
+                job=job
+            ).exists():
+                raise PermissionDenied("You must apply first.")
+
+            jobseeker_user = user
+
+        # -----------------------------------
+        # EMPLOYEE FLOW
+        # -----------------------------------
+        else:
+            employee = user.employee_profile
+
+            if job.company != employee.company:
+                raise PermissionDenied("Not your company job.")
+
+            if not UserAppliedJob.objects.filter(
+                user=jobseeker_user,
+                job=job
+            ).exists():
+                raise PermissionDenied("Candidate did not apply.")
+
+        # -----------------------------------
+        # CREATE PRIVATE CONVERSATION
+        # -----------------------------------
         conversation, _ = Conversation.objects.get_or_create(
-            job=job
+            job=job,
+            jobseeker=jobseeker_user
         )
 
-        # Add current user
+        # Add jobseeker participant
         ConversationParticipant.objects.get_or_create(
             conversation=conversation,
-            user=self.request.user,
-            role="EMPLOYER" if is_employee else "JOBSEEKER"
+            user=jobseeker_user,
+            role="JOBSEEKER"
         )
 
-        # Add all employees
+        # Add all company employees
         employees = Employee.objects.filter(company=job.company)
 
         for emp in employees:
@@ -58,16 +81,10 @@ class OpenChatAPIView(CreateAPIView):
                 role="EMPLOYER"
             )
 
-        self.conversation = conversation
-
-    def create(self, request, *args, **kwargs):
-        response = super().create(request, *args, **kwargs)
         return Response(
-            {"conversation_id": self.conversation.id},
+            {"conversation_id": conversation.id},
             status=200
         )
-
-
 class SendMessageAPIView(CreateAPIView):
     serializer_class = SendMessageSerializer
     permission_classes = [IsAuthenticated]

@@ -4,6 +4,7 @@ from jobseeker.models import Job
 
 class Conversation(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    jobseeker = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

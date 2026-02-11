@@ -244,11 +244,14 @@ class JobSeekerDashboardCountAPI(GenericAPIView):
         jobseeker, _ = JobSeeker.objects.get_or_create(user=user)
 
         fields = [
+             bool(jobseeker.first_name),
+            bool(jobseeker.last_name),
+            bool(jobseeker.education),
+            bool(jobseeker.title),
             bool(jobseeker.avatar),
-            bool(jobseeker.first_name.strip()),
-            bool(jobseeker.last_name.strip()),
-            bool(jobseeker.education.strip()),
-            bool(jobseeker.experience.strip()),
+            bool(jobseeker.resume),
+            jobseeker.skills.exists(),
+            jobseeker.experiences.exists(),
         ]
 
         completed_fields = sum(fields)
@@ -676,3 +679,37 @@ class ResumeUploadAPIView(GenericAPIView):
         )
     
 
+#for completion percentage of profile
+class ProfileCompletionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+
+        sections = {
+            "first_name": bool(jobseeker.first_name),
+            "last_name": bool(jobseeker.last_name),
+            "education": bool(jobseeker.education),
+            "title": bool(jobseeker.title),
+            "avatar": bool(jobseeker.avatar),
+            "resume": bool(jobseeker.resume),
+            "skills": jobseeker.skills.exists(),
+            "experience": jobseeker.experiences.exists(),
+        }
+
+        total = len(sections)
+        filled = sum(sections.values())
+        percentage = round((filled / total) * 100)
+
+        missing = []   
+
+        for field, status in sections.items():
+            if status == False:    
+                missing.append(field)
+
+        return Response({
+            "completion_percentage": f"{percentage}%" ,
+            "total_fields": total,
+            "filled_fields": filled,
+            "missing_fields": missing
+        })

@@ -4,13 +4,13 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                     CompanyLogoUploadAPI , JobSeekerOpportunitiesCompanyListAPI ,  JobSeekerOpportunitiesOverviewAPI,
                      LandingJobListingAPI,ApplyJobAPIView , JobAlertCreateAPIView , JobAlertListAPIView, 
                      JobAlertDetailAPIView, JobAlertMatchesAPIView,
-                     JobAlertNewCountAPIView,JobCategoryListAPIView, JobCategoryAPI , ResumeUploadAPIView ,)
+                     JobAlertNewCountAPIView,JobCategoryListAPIView, JobCategoryAPI , ResumeUploadAPIView ,ProfileCompletionAPIView)
 urlpatterns = [
     path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
     path("profile/", JobSeekerProfileAPI.as_view(), name="jobseeker-profile"),
     path("api/change-password/", ChangePasswordAPI.as_view(), name="change-password"),
-    path("jobseeker/dashboard/counts/",JobSeekerDashboardCountAPI.as_view(),name="jobseeker-dashboard-counts"),
+    path("dashboard/counts/",JobSeekerDashboardCountAPI.as_view(),name="jobseeker-dashboard-counts"),
     path("api/logout/", LogoutAPI.as_view(), name="logout"),
     path("company/<int:company_id>/jobs/",CompanyJobsAPI.as_view(),name="company-jobs",),
     path("companies/<int:company_id>/upload-logo/",CompanyLogoUploadAPI.as_view(),name="company-logo-upload"),
@@ -26,6 +26,7 @@ urlpatterns = [
     path( "job-categories/list/",JobCategoryListAPIView.as_view(), name="job-category-lists"), 
     path("job-categories/list/<int:category_id>/",JobCategoryAPI.as_view(),name="job-category-jobs"),
     path("profile/resume/",ResumeUploadAPIView.as_view(),name="resume-upload"),
+    path("profile/completion_details/",ProfileCompletionAPIView.as_view(),name="profile_completion_details"),
     
 
      ]
