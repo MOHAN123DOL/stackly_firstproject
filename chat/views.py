@@ -9,29 +9,53 @@ from jobseeker.models import Job, UserAppliedJob
 from employees.models import Employee
 from django.db import transaction
 from .models import Conversation, ConversationParticipant, Message
-from .serializers import OpenChatSerializer, MessageSerializer , SendMessageSerializer  , InboxSerializer
+from .serializers import JobSeekerOpenChatSerializer,EmployerOpenChatSerializer, MessageSerializer , SendMessageSerializer  , InboxSerializer
 from django.contrib.auth.models import User
 
 
-
-class OpenChatAPIView(GenericAPIView):
-    serializer_class = OpenChatSerializer
+class OpenChatAPIView(CreateAPIView):
     permission_classes = [IsAuthenticated]
 
-    @transaction.atomic
-    def post(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+   
+    # Choose serializer by their role
+    
+    def get_serializer_class(self):
+        user = self.request.user
 
+        if hasattr(user, "employee_profile"):
+            return EmployerOpenChatSerializer
+        return JobSeekerOpenChatSerializer
+
+ 
+    
+
+    @transaction.atomic # for safe insertion 
+    def perform_create(self, serializer):
+        user = self.request.user
         job = serializer.validated_data["job"]
-        jobseeker_user = serializer.validated_data.get("jobseeker")
 
-        user = request.user
+       
+        #  IF EMPLOYER 
+        
+        if hasattr(user, "employee_profile"):
 
-        # -----------------------------------
-        # JOBSEEKER FLOW
-        # -----------------------------------
-        if not hasattr(user, "employee_profile"):
+            jobseeker = serializer.validated_data.get("jobseeker")
+
+            if not jobseeker:
+                raise PermissionDenied("Jobseeker is required.")
+
+            # Check jobseeker applied
+            if not UserAppliedJob.objects.filter(
+                user=jobseeker,
+                job=job
+            ).exists():
+                raise PermissionDenied("This user did not apply for this job.")
+
+      
+        # IF JOBSEEKER 
+       
+        else:
+            jobseeker = user
 
             if not UserAppliedJob.objects.filter(
                 user=user,
@@ -39,39 +63,24 @@ class OpenChatAPIView(GenericAPIView):
             ).exists():
                 raise PermissionDenied("You must apply first.")
 
-            jobseeker_user = user
-
-        # -----------------------------------
-        # EMPLOYEE FLOW
-        # -----------------------------------
-        else:
-            employee = user.employee_profile
-
-            if job.company != employee.company:
-                raise PermissionDenied("Not your company job.")
-
-            if not UserAppliedJob.objects.filter(
-                user=jobseeker_user,
-                job=job
-            ).exists():
-                raise PermissionDenied("Candidate did not apply.")
-
-        # -----------------------------------
-        # CREATE PRIVATE CONVERSATION
-        # -----------------------------------
+        # Create conversation (1-to-1)
         conversation, _ = Conversation.objects.get_or_create(
             job=job,
-            jobseeker=jobseeker_user
+            jobseeker=jobseeker
         )
 
+    
         # Add jobseeker participant
+       
         ConversationParticipant.objects.get_or_create(
             conversation=conversation,
-            user=jobseeker_user,
+            user=jobseeker,
             role="JOBSEEKER"
         )
 
+       
         # Add all company employees
+       
         employees = Employee.objects.filter(company=job.company)
 
         for emp in employees:
@@ -81,10 +90,20 @@ class OpenChatAPIView(GenericAPIView):
                 role="EMPLOYER"
             )
 
+        self.conversation = conversation
+
+  
+    #  OVERRIDE  CREATE Custom response
+   
+    def create(self, request, *args, **kwargs):
+        super().create(request, *args, **kwargs)
+
         return Response(
-            {"conversation_id": conversation.id},
+            {"conversation_id": self.conversation.id},
             status=200
         )
+    
+    
 class SendMessageAPIView(CreateAPIView):
     serializer_class = SendMessageSerializer
     permission_classes = [IsAuthenticated]

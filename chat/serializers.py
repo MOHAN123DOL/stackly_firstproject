@@ -4,60 +4,44 @@ from jobseeker.models import Job, UserAppliedJob
 from django.contrib.auth.models import User
 
 
-class OpenChatSerializer(serializers.Serializer):
+
+
+class JobSeekerOpenChatSerializer(serializers.Serializer):
+    job = serializers.PrimaryKeyRelatedField(queryset=Job.objects.none())
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        user = self.context["request"].user
+
+        # Only jobs this user applied to
+        self.fields["job"].queryset = Job.objects.filter(
+            userappliedjob__user=user
+        ).distinct()
+
+
+class EmployerOpenChatSerializer(serializers.Serializer):
     job = serializers.PrimaryKeyRelatedField(queryset=Job.objects.none())
     jobseeker = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.none(),
-        required=False
+        queryset=User.objects.none()
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        request = self.context["request"]
-        user = request.user
+        user = self.context["request"].user
+        company = user.employee_profile.company
 
-        # ----------------------
-        # EMPLOYEE LOGIN
-        # ----------------------
-        if hasattr(user, "employee_profile"):
+        company_jobs = Job.objects.filter(company=company)
 
-            # Only show company jobs
-            self.fields["job"].queryset = Job.objects.filter(
-                company=user.employee_profile.company
-            )
+        # Only company jobs
+        self.fields["job"].queryset = company_jobs
 
-            # Jobseeker dropdown will be filtered later in view
-            self.fields["jobseeker"].queryset = User.objects.all()
-
-        # ----------------------
-        # JOBSEEKER LOGIN
-        # ----------------------
-        else:
-
-            # Only show jobs the user applied to
-            self.fields["job"].queryset = Job.objects.filter(
-                userappliedjob__user=user
-            ).distinct()
-
-    def validate(self, data):
-        request = self.context["request"]
-        user = request.user
-
-        is_employee = hasattr(user, "employee_profile")
-
-        if is_employee and not data.get("jobseeker"):
-            raise serializers.ValidationError(
-                {"jobseeker": "This field is required for employees."}
-            )
-
-        if not is_employee and data.get("jobseeker"):
-            raise serializers.ValidationError(
-                {"jobseeker": "Jobseekers should not send this field."}
-            )
-
-        return data
-    
+        # Only jobseekers who applied to company jobs
+        self.fields["jobseeker"].queryset = User.objects.filter(
+            userappliedjob__job__in=company_jobs
+        ).distinct()
+            
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.StringRelatedField()
 

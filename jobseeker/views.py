@@ -40,9 +40,9 @@ from .pagination import LandingJobPagination
 from django.db.models.functions import Lower
 from .utils.Matching import match_jobs
 from .serializers import ResumeUploadSerializer
-from.utils.resume_apyhub import parse_resume_with_rapidapi
-
-
+from.utils.resume_apyhub import parse_resume_with_rapidapi 
+from datetime import date
+from.utils.total_experiences_calculator import calculate_total_experience
 
 class JobSeekerAvatarAPI(GenericAPIView):
     permission_classes = [IsAuthenticated]
@@ -712,4 +712,47 @@ class ProfileCompletionAPIView(APIView):
             "total_fields": total,
             "filled_fields": filled,
             "missing_fields": missing
+        })
+    
+
+
+# for skill assessment score
+
+
+class SkillAssessmentAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+
+        # Skill score (60%)
+        skill_count = jobseeker.skills.count()
+        skill_score = min(skill_count, 10) * 6   # max 60
+        total_percentage_of_skill = round(((skill_score/60)*100),2)
+        
+        # Experience score (40%)
+        total_years = calculate_total_experience(jobseeker)
+        experience_score = min(total_years, 10) * 4   # max 40
+        total_percentage_of_experience = round(((experience_score/40)*100),2)
+
+        final_score = round(skill_score + experience_score)
+        total_percentage_of_final = round(((final_score/100)*100),2)
+
+        # Level classification
+        if final_score <= 30:
+            level = "Beginner"
+        elif final_score <= 60:
+            level = "Intermediate"
+        elif final_score <= 85:
+            level = "Advanced"
+        else:
+            level = "Expert"
+
+        return Response({
+            "total_skills": skill_count,
+            "total_experience_years": total_years,
+            "skill_score_&_Percentage": f"The Skill score is {skill_score} out of 60 and The Percenatage is {total_percentage_of_skill}%",
+            "experience_score_&_Percentage":  f"The Experience score is {experience_score}  out of 40 and The Percenatage is {total_percentage_of_experience}%",
+            "final_score":  f"The final core is {final_score} out of 100 and The Percenatage is {total_percentage_of_final}%",
+            "level": level
         })

@@ -1,5 +1,11 @@
 from .models import JobSeeker , Job, UserAppliedJob , UserSavedJob , Company
 from django.core.cache import cache
+
+from celery import shared_task
+from django.core.cache import cache
+from .models import JobSeeker
+from .utils.total_experiences_calculator import calculate_total_experience
+
 cache_timeout = 300
 def get_opportunities_overview(user):
     cache_key = f"jobseeker_overview_{user.id}"
@@ -32,11 +38,6 @@ def get_opportunities_overview(user):
             )
         )
     
-        
-
-
-
-
 
     data = {
         "total_jobs": Job.objects.count(),
@@ -51,3 +52,7 @@ def get_opportunities_overview(user):
 
     cache.set(cache_key, data, cache_timeout)
     return data
+
+
+
+

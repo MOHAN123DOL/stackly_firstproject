@@ -4,7 +4,7 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                     CompanyLogoUploadAPI , JobSeekerOpportunitiesCompanyListAPI ,  JobSeekerOpportunitiesOverviewAPI,
                      LandingJobListingAPI,ApplyJobAPIView , JobAlertCreateAPIView , JobAlertListAPIView, 
                      JobAlertDetailAPIView, JobAlertMatchesAPIView,
-                     JobAlertNewCountAPIView,JobCategoryListAPIView, JobCategoryAPI , ResumeUploadAPIView ,ProfileCompletionAPIView)
+                     JobAlertNewCountAPIView,JobCategoryListAPIView, JobCategoryAPI , ResumeUploadAPIView ,ProfileCompletionAPIView, SkillAssessmentAPIView)
 urlpatterns = [
     path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -27,6 +27,7 @@ urlpatterns = [
     path("job-categories/list/<int:category_id>/",JobCategoryAPI.as_view(),name="job-category-jobs"),
     path("profile/resume/",ResumeUploadAPIView.as_view(),name="resume-upload"),
     path("profile/completion_details/",ProfileCompletionAPIView.as_view(),name="profile_completion_details"),
+    path("profile/skill-assessment/", SkillAssessmentAPIView.as_view(),name="skills_assessment_score"),
     
 
      ]

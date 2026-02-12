@@ -2,4 +2,8 @@ from django.apps import AppConfig
 
 
 class JobseekerConfig(AppConfig):
-    name = 'jobseeker'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "jobseeker"
+
+    def ready(self):
+        import jobseeker.signals
