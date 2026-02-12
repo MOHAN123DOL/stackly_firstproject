@@ -21,10 +21,13 @@ from .serializers import (
     ApplyJobSerializer,
     JobAlertSerializer,
     JobcatSerializer,
-    JobCategoryListSerializer
+    JobCategoryListSerializer,
+    ChatbotMessageSerializer
    
     
 )
+from .models import UnansweredQuestion
+from .services import ask_ai , find_best_answer
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from notifications.utils import create_notification
@@ -755,4 +758,44 @@ class SkillAssessmentAPIView(APIView):
             "experience_score_&_Percentage":  f"The Experience score is {experience_score}  out of 40 and The Percenatage is {total_percentage_of_experience}%",
             "final_score":  f"The final core is {final_score} out of 100 and The Percenatage is {total_percentage_of_final}%",
             "level": level
+        })
+    
+
+class AIChatbotAPIView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ChatbotMessageSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        question = serializer.validated_data["message"]
+
+        # 1️⃣ First check DB
+        db_answer = find_best_answer(question)
+
+        if db_answer:
+            return Response({
+                "source": "database",
+                "reply": db_answer
+            })
+
+        # 2️⃣ Ask AI
+        ai_reply = ask_ai(question)
+
+        if not ai_reply or "CONTACT_SUPPORT" in ai_reply:
+            # 3️⃣ Save to admin review
+            UnansweredQuestion.objects.create(
+                user=request.user,
+                question=question
+            )
+
+            return Response({
+                "source": "fallback",
+                "reply": "Sorry, I couldn't answer this. Please contact support."
+            })
+
+        return Response({
+            "source": "ai",
+            "reply": ai_reply
         })

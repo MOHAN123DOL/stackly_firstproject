@@ -159,7 +159,26 @@ class UserSavedJob(models.Model):
 
 
 
+class HelpIntent(models.Model):
+    question = models.TextField()
+    answer = models.TextField()
+    keywords = models.CharField(
+        max_length=500,
+        help_text="Comma separated keywords"
+    )
 
+    def __str__(self):
+        return self.question
+    
+
+class UnansweredQuestion(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    question = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.question
 
 
 

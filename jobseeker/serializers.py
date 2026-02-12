@@ -283,3 +283,10 @@ class ResumeUploadSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Only PDF or DOC files are allowed.")
 
         return value
+
+
+class ChatbotMessageSerializer(serializers.Serializer):
+    message = serializers.CharField(
+        max_length=1000,
+        required=True
+    )

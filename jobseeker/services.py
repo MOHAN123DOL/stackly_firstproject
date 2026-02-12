@@ -5,6 +5,11 @@ from celery import shared_task
 from django.core.cache import cache
 from .models import JobSeeker
 from .utils.total_experiences_calculator import calculate_total_experience
+from .models import HelpIntent
+
+import requests
+from django.conf import settings
+
 
 cache_timeout = 300
 def get_opportunities_overview(user):
@@ -55,4 +60,63 @@ def get_opportunities_overview(user):
 
 
 
+def find_best_answer(user_message):
+    user_message = user_message.lower()
 
+    intents = HelpIntent.objects.all()
+
+    best_match = None
+    highest_score = 0
+
+    for intent in intents:
+        score = 0
+        keywords = intent.keywords.lower().split(",")
+
+        for word in keywords:
+            if word.strip() in user_message:
+                score += 1
+
+        if score > highest_score:
+            highest_score = score
+            best_match = intent
+
+    if best_match:
+        return best_match.answer
+
+    return None
+
+
+
+
+
+def ask_ai(question):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": "llama-3.3-70b-versatile", 
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a helpful job portal support assistant. If you don't know the answer, reply with CONTACT_SUPPORT."
+            },
+            {
+                "role": "user",
+                "content": question
+            }
+        ],
+        "temperature": 0.3
+    }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code == 200:
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
+
+    print("Groq Error:", response.text)
+    return None
