@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Employee
 from jobseeker.models import Job , JobCategory
-
+from .models import Interview
 
 #FOR SIGNUP PAGE 
 
@@ -144,3 +144,40 @@ class JobCategorySerializer(serializers.ModelSerializer):
             "jobs_count"
         ]
         read_only_fields = ["id", "created_at"]
+
+
+
+class InterviewSerializer(serializers.ModelSerializer):
+
+    interview_date = serializers.DateTimeField(
+        format="%d-%m-%Y %I:%M %p"
+    )
+    class Meta:
+        model = Interview
+        fields = "__all__"
+
+    def validate(self, data):
+        mode = data.get("mode")
+        meeting_link = data.get("meeting_link")
+        location = data.get("location")
+
+        if mode == "online":
+            if not meeting_link:
+                raise serializers.ValidationError(
+                    "Meeting link is required for online interviews."
+                )
+            data["location"] = None   # force null
+
+        elif mode == "offline":
+            if not location:
+                raise serializers.ValidationError(
+                    "Location is required for offline interviews."
+                )
+            data["meeting_link"] = None  # force null
+
+        else:
+            raise serializers.ValidationError(
+                "Mode must be either 'online' or 'offline'."
+            )
+
+        return data

@@ -22,10 +22,12 @@ from .serializers import (
     JobAlertSerializer,
     JobcatSerializer,
     JobCategoryListSerializer,
-    ChatbotMessageSerializer
+    ChatbotMessageSerializer,
+    
    
     
 )
+from employees.serializers import InterviewSerializer
 from .models import UnansweredQuestion
 from .services import ask_ai , find_best_answer
 from rest_framework.exceptions import ValidationError
@@ -799,3 +801,13 @@ class AIChatbotAPIView(GenericAPIView):
             "source": "ai",
             "reply": ai_reply
         })
+    
+
+
+class JobseekerInterviewListAPIView(ListAPIView):
+    serializer_class = InterviewSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        jobseeker = JobSeeker.objects.get(user=self.request.user)
+        return jobseeker.interviews.all().order_by("-interview_date")
