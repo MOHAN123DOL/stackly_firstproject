@@ -810,4 +810,4 @@ class JobseekerInterviewListAPIView(ListAPIView):
 
     def get_queryset(self):
         jobseeker = JobSeeker.objects.get(user=self.request.user)
-        return jobseeker.interviews.all().order_by("-interview_date")
+        return jobseeker.interviews.all().order_by("interview_date")

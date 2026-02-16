@@ -42,6 +42,7 @@ urlpatterns = [
     path("employee/",include("employees.urls")),
     path("landingpages/", include("landingpages.urls")),
     path("api/chat/", include("chat.urls")),
+    path("api/", include("contact.urls")),
 ]
 
 
