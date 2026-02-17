@@ -10,7 +10,7 @@ from rest_framework.permissions import BasePermission
 from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill
 from .serializers import (
     JobSeekerAvatarSerializer,
-    UserRegistrationSerializer,
+    JobSeekerRegistrationSerializer,
     ChangePasswordSerializer,
     JobSeekerProfileSerializer,
     CustomTokenSerializer,
@@ -138,24 +138,27 @@ class JobSeekerAvatarAPI(GenericAPIView):
         )
 
 
-class JobSeekerRegistrationAPI(GenericAPIView):
-    serializer_class = UserRegistrationSerializer
-    permission_classes = [AllowAny]
-    authentication_classes = []
+class JobSeekerRegistrationAPI(CreateAPIView):
 
-    def post(self, request):
+    serializer_class = JobSeekerRegistrationSerializer
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        
         user = serializer.save()
 
         create_notification(user, "Registration completed successfully")
 
         return Response(
             {
+                "success": True,
                 "message": "Registration successful. Please login.",
-                "login_url": "jobseeker/login/all",
+                "data": {
+                    "username": user.username,
+                    "email": user.email,
+                }
             },
             status=status.HTTP_201_CREATED,
         )

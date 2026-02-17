@@ -15,33 +15,43 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from jobseeker.models import UserAppliedJob , Company , Job , JobSeeker
 from chat.models import Conversation,ConversationParticipant , Message
-
+from rest_framework.permissions import AllowAny
 #FOR SIGNUP PAGE 
 
-class EmployeeRegistrationAPI(GenericAPIView):
-    serializer_class = EmployeeRegistrationSerializer
-    permission_classes = []  
 
-    def post(self, request):
+
+class EmployeeRegistrationAPI(CreateAPIView):
+
+    serializer_class = EmployeeRegistrationSerializer
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        employee = serializer.save()
 
         return Response(
             {
-                "message": "Employee registration successful. Please login.",
-                "login_url": "employee/login/all",
+                "message": "Employer registration successful.",
+                "data": {
+                    "username": employee.user.username,
+                    "email": employee.user.email,
+                    "company": employee.company.name,
+                    "role": employee.role,
+                
+                },
+            "Login_link":"/login/all/"
             },
             status=status.HTTP_201_CREATED
         )
+
 
 
 #FOR FORGOT PASSWORD AND GET TOKEN LINK AND ALLOW USER CREATE NEW PASSWORD
 
 class EmployerForgotPasswordOTPAPI(GenericAPIView):
     serializer_class = EmployerForgotPasswordOTPSerializer
-    permission_classes = []
-    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = self.get_serializer(data=request.data)

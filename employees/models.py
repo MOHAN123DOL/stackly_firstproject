@@ -2,25 +2,43 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils.timezone import now, timedelta
 from jobseeker.models import Company , Job , JobSeeker
-
 class Employee(models.Model):
+
+    ROLE_CHOICES = (
+        ("owner", "Owner"),
+        ("hr", "HR"),
+        ("recruiter", "Recruiter"),
+    )
+
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
         related_name="employee_profile"
     )
+
     company = models.ForeignKey(
         Company,
         on_delete=models.CASCADE,
         related_name="employees"
     )
+
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default="recruiter"
+    )
+
     designation = models.CharField(max_length=100, blank=True)
     phone = models.CharField(max_length=15, blank=True)
+
+    is_active = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.username} - {self.company_name}"
+        return f"{self.user.username} - {self.company.name}"
+
 
 
 

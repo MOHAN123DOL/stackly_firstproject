@@ -23,8 +23,11 @@ class ContactMessageSerializer(serializers.ModelSerializer):
         attrs["contact"] = contact
         attrs["message"] = message
 
+        if len(message) <= 5:
+            raise serializers.ValidationError(
+                {"MESSAGE": "message can be 5 or more characters."}
+            )
 
-        
         if not contact.isdigit():
             raise serializers.ValidationError(
                 {"contact": "Contact must contain only digits."}

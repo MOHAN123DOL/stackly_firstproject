@@ -6,6 +6,10 @@ from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed  
 from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCategory
 from employees.models import Employee
+from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
+
+
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,53 +18,70 @@ class JobSeekerAvatarSerializer(serializers.ModelSerializer):
 
 
 
+class JobSeekerRegistrationSerializer(serializers.Serializer):
 
-class UserRegistrationSerializer(serializers.Serializer):
-    ROLE_CHOICES = (
-        ("jobseeker", "Job Seeker"),
-    )
-
-    username = serializers.CharField()
+    username = serializers.CharField(max_length=20)
     email = serializers.EmailField()
-    role = serializers.ChoiceField(choices=ROLE_CHOICES)
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
-    confirm_password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    confirm_password = serializers.CharField(write_only=True)
+    phone = serializers.CharField(required=False, allow_blank=True)
 
-    def validate(self, data):
-        if data["password"] != data["confirm_password"]:
+
+    def validate_username(self, value):
+        if len(value) < 4:
+            raise serializers.ValidationError("Username must be at least 4 characters.")
+
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists.")
+
+        return value
+
+    def validate_email(self, value):
+        value = value.lower().strip()
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already exists.")
+        return value
+
+    def validate_phone(self, value):
+        if value:
+            if not value.isdigit():
+                raise serializers.ValidationError("Phone must contain only digits.")
+            if len(value) != 10:
+                raise serializers.ValidationError("Phone must be 10 digits.")
+        return value
+
+
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["confirm_password"]:
             raise serializers.ValidationError(
-                {"password": "Passwords do not match"}
+                {"confirm_password": "Passwords do not match."}
             )
 
-        if User.objects.filter(username=data["username"]).exists():
-            raise serializers.ValidationError(
-                {"username": "Username already exists"}
-            )
+        validate_password(attrs["password"])
+        return attrs
 
-        if User.objects.filter(email=data["email"]).exists():
-            raise serializers.ValidationError(
-                {"email": "Email already exists"}
-            )
 
-        return data
-
+    @transaction.atomic
     def create(self, validated_data):
-        role = validated_data.pop("role")
+        password = validated_data.pop("password")
+        validated_data.pop("confirm_password")
+        phone = validated_data.pop("phone", "")
 
-        user = User(
+        user = User.objects.create_user(
             username=validated_data["username"],
-            email=validated_data.get("email"),
+            email=validated_data["email"],
+            password=password,
+            is_active=True,
         )
 
-        user.set_password(validated_data["password"])
-        user.save()
-
-        # 🔹 Create profile based on role
-        if role == "jobseeker":
-            JobSeeker.objects.create(user=user)
-        
+        JobSeeker.objects.create(
+            user=user,
+            phone=phone
+        )
 
         return user
+
 
 
 

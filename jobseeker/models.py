@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-
+from django.utils.text import slugify
 
 class Skill(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -11,6 +11,7 @@ class Skill(models.Model):
 class JobSeeker(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    phone = models.CharField(max_length=15, blank=True)
     resume = models.FileField(upload_to="resumes/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -95,6 +96,7 @@ class JobAlert(models.Model):
 
 class Company(models.Model):
     name = models.CharField(max_length=200, unique=True)
+    slug = models.SlugField(unique=True, blank=True) 
     location = models.CharField(max_length=200, blank=True)
     website = models.URLField(blank=True)
     company_logo = models.ImageField(
@@ -104,6 +106,16 @@ class Company(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True,blank=True)
+    is_verified = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

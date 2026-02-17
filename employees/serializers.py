@@ -1,17 +1,19 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Employee
-from jobseeker.models import Job , JobCategory
-from .models import Interview
-
+from .models import Employee , Interview
+from jobseeker.models import Job , JobCategory , Company
+from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 #FOR SIGNUP PAGE 
+
 
 class EmployeeRegistrationSerializer(serializers.ModelSerializer):
 
     username = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True)
-    password = serializers.CharField(write_only=True,style={"input_type": "password"})
-    confirm_password = serializers.CharField(write_only=True,style={"input_type": "password"})
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    confirm_password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    company_name = serializers.CharField(write_only=True)
 
     class Meta:
         model = Employee
@@ -19,49 +21,83 @@ class EmployeeRegistrationSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "company_name",
+            "designation",
+            "phone",
             "password",
             "confirm_password",
         ]
 
-    def validate(self, data):
-        if data["password"] != data["confirm_password"]:
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists.")
+        return value
+
+    def validate_email(self, value):
+        value = value.lower().strip()
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already exists.")
+        return value
+
+    def validate_phone(self, value):
+        if value:
+            if not value.isdigit():
+                raise serializers.ValidationError("Phone must contain only digits.")
+            if len(value) < 10:
+                raise serializers.ValidationError("Phone must be at least 10 digits.")
+        return value
+
+  
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["confirm_password"]:
             raise serializers.ValidationError(
-                {"password": "Passwords do not match"}
+                {"confirm_password": "Passwords do not match."}
             )
 
-        if User.objects.filter(username=data["username"]).exists():
-            raise serializers.ValidationError(
-                {"username": "Username already exists"}
-            )
+        validate_password(attrs["password"])  
+        return attrs
 
-        if User.objects.filter(email=data["email"]).exists():
-            raise serializers.ValidationError(
-                {"email": "Email already exists"}
-            )
+ 
 
-        return data
-
+    @transaction.atomic
     def create(self, validated_data):
+
+        company_name = validated_data.pop("company_name").strip()
         username = validated_data.pop("username")
-        email = validated_data.pop("email")
+        email = validated_data.pop("email").lower()
         password = validated_data.pop("password")
         validated_data.pop("confirm_password")
 
-        # 🔹 Create User
+        # Create or get company
+        company, created = Company.objects.get_or_create(name=company_name)
+
+        # Create user
         user = User.objects.create_user(
             username=username,
             email=email,
             password=password,
-            is_staff=True  # Employee flag
+            is_active=True,
+            is_staff = True,
         )
 
-        # 🔹 Create Employee profile
+        # First employee = owner
+        if created:
+            role = "owner"
+            
+        else :
+             role = "recruiter"
+             
+    
+        
         employee = Employee.objects.create(
             user=user,
+            company=company,
+            role=role,
             **validated_data
         )
 
         return employee
+
 
 #FOR FORGOT PASSWORD AND GET TOKEN LINK AND ALLOW USER CREATE NEW PASSWORD
 
