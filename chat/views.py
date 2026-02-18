@@ -11,7 +11,7 @@ from django.db import transaction
 from .models import Conversation, ConversationParticipant, Message
 from .serializers import JobSeekerOpenChatSerializer,EmployerOpenChatSerializer, MessageSerializer , SendMessageSerializer  , InboxSerializer
 from django.contrib.auth.models import User
-
+from django.db.models import Max, Count, Q
 
 class OpenChatAPIView(CreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -158,7 +158,9 @@ class MessageListAPIView(ListAPIView):
         ).update(is_read=True)
 
         # Return all messages
-        return conversation.messages.all()
+        return conversation.messages.all().order_by("-created_at")
+
+
 
 
 
@@ -170,7 +172,13 @@ class InboxAPIView(APIView):
 
         conversations = Conversation.objects.filter(
             participants__user=user
-        ).distinct()
+        ).annotate(
+            last_message_time=Max("messages__created_at"),
+            unread_count=Count(
+                "messages",
+                filter=Q(messages__is_read=False) & ~Q(messages__sender=user)
+            )
+        ).order_by("-last_message_time")
 
         inbox = []
 
@@ -179,19 +187,13 @@ class InboxAPIView(APIView):
             if not last_message:
                 continue
 
-            unread_count = conversation.messages.filter(
-                is_read=False
-            ).exclude(sender=user).count()
-
             inbox.append({
                 "conversation_id": conversation.id,
                 "job_id": conversation.job.id,
                 "job_title": conversation.job.role,
                 "last_message": last_message.text,
-                "last_message_time": last_message.created_at,
-                "unread_count": unread_count
+                "last_message_time": conversation.last_message_time,
+                "unread_count": conversation.unread_count
             })
-
-        inbox.sort(key=lambda x: x["last_message_time"], reverse=True)
 
         return Response(inbox)

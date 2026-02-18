@@ -6,7 +6,9 @@ class Conversation(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     jobseeker = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    class Meta:
+        unique_together = ("job", "jobseeker")
+        
     def __str__(self):
         return f"Conversation - Job {self.job.id}"
 
