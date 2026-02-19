@@ -1,4 +1,4 @@
-from rest_framework.generics import GenericAPIView ,CreateAPIView , ListAPIView ,RetrieveUpdateDestroyAPIView
+from rest_framework.generics import GenericAPIView ,CreateAPIView , ListAPIView ,RetrieveUpdateDestroyAPIView , RetrieveUpdateAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User 
@@ -9,16 +9,19 @@ import random
 from .models import PasswordResetOTP , Interview , Employee
 from django.utils.timezone import now
 from .serializers import (ResetPasswordWithOTPSerializer , JobCategorySerializer 
-                          , EmployeeRegistrationSerializer ,EmployerForgotPasswordOTPSerializer ,JobCreateSerializer,InterviewSerializer )
+                          , EmployeeRegistrationSerializer ,
+                          EmployerUpdateStatusSerializer,EmployerForgotPasswordOTPSerializer ,JobCreateSerializer,InterviewSerializer , EmployerApplicationListSerializer )
 from django.db.models import Count
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError , PermissionDenied
 from jobseeker.models import UserAppliedJob , Company , Job , JobSeeker
 from chat.models import Conversation,ConversationParticipant , Message
 from rest_framework.permissions import AllowAny
+
+
+
 #FOR SIGNUP PAGE 
-
-
 
 class EmployeeRegistrationAPI(CreateAPIView):
 
@@ -220,3 +223,86 @@ class ScheduleInterviewAPIView(CreateAPIView):
             sender=employer_user,
             text=message_text,
         )
+
+
+class EmployerJobApplicationsAPIView(ListAPIView):
+    serializer_class = EmployerApplicationListSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+
+        if not hasattr(self.request.user, "employee_profile"):
+            raise PermissionDenied("Only employer can access this.")
+
+        job_id = self.kwargs.get("job_id")
+
+        job = Job.objects.get(id=job_id)
+
+
+        # Check employer belongs to same company
+        if job.company != self.request.user.employee_profile.company:
+            raise PermissionDenied("Not allowed for this job.")
+        UserAppliedJob.objects.filter(
+            job=job,
+            status="APPLIED"
+        ).update(status="UNDER_REVIEW")
+        return UserAppliedJob.objects.filter(job=job).select_related(
+            "user",
+            "user__jobseeker"
+        )
+    
+class EmployerUpdateApplicationStatusAPIView(RetrieveUpdateAPIView):
+    serializer_class = EmployerUpdateStatusSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = UserAppliedJob.objects.all()
+
+    def get_object(self):
+        application = super().get_object()
+
+        if not hasattr(self.request.user, "employee_profile"):
+            raise PermissionDenied("Only employer allowed.")
+
+        if application.job.company != self.request.user.employee_profile.company:
+            raise PermissionDenied("Not allowed for this job.")
+
+        return application
+
+    def perform_update(self, serializer):
+        old_status = self.get_object().status
+        application = serializer.save()
+
+        # Only send message if status changed
+        if old_status != application.status:
+
+            # 🔹 Get or create conversation
+            conversation, _ = Conversation.objects.get_or_create(
+                job=application.job,
+                jobseeker=application.user
+            )
+
+            # 🔹 Add jobseeker as participant
+            ConversationParticipant.objects.get_or_create(
+                conversation=conversation,
+                user=application.user,
+                role="JOBSEEKER"
+            )
+
+            # 🔹 Add all company employees as participants
+            employees = Employee.objects.filter(
+                company=application.job.company
+            )
+
+            for emp in employees:
+                ConversationParticipant.objects.get_or_create(
+                    conversation=conversation,
+                    user=emp.user,
+                    role="EMPLOYER"
+                )
+
+            # 🔹 Create automatic message
+            Message.objects.create(
+                conversation=conversation,
+                sender=self.request.user,
+                text=f"Your application status has been updated to {application.status}."
+            )
+

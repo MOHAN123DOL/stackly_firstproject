@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Employee , Interview
-from jobseeker.models import Job , JobCategory , Company
+from jobseeker.models import Job , JobCategory , UserAppliedJob
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 #FOR SIGNUP PAGE 
@@ -217,3 +217,54 @@ class InterviewSerializer(serializers.ModelSerializer):
             )
 
         return data
+    
+
+
+
+class EmployerApplicationListSerializer(serializers.ModelSerializer):
+
+    first_name = serializers.CharField(source="user.jobseeker.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.jobseeker.last_name", read_only=True)
+    phone = serializers.CharField(source="user.jobseeker.phone", read_only=True)
+    title = serializers.CharField(source="user.jobseeker.title", read_only=True)
+    education = serializers.CharField(source="user.jobseeker.education", read_only=True)
+    user_name = serializers.CharField(
+        source="user.username",
+        read_only=True
+    )
+    resume = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserAppliedJob
+        fields = [
+            "id",
+            "user",
+            "user_name",
+            "first_name",
+            "last_name",
+            "phone",
+            "title",
+            "education",
+            "resume",
+            "status",
+            "applied_at"
+        ]
+
+    def get_resume(self, obj):
+      #get applied job resume 
+
+        if obj.resume:
+            return obj.resume.url
+
+     #get or get from jobseeker
+
+        if hasattr(obj.user, "jobseeker") and obj.user.jobseeker.resume:
+            return obj.user.jobseeker.resume.url
+
+        return None
+    
+class EmployerUpdateStatusSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = UserAppliedJob
+        fields = ["status"]

@@ -223,6 +223,7 @@ class LandingJobSerializer(serializers.ModelSerializer):
 
 class ApplyJobSerializer(serializers.Serializer):
     job_id = serializers.IntegerField()
+    resume = serializers.FileField(required=False)
 
 #FOR CREATE JOBALERT IF ROLE NOT ENTERED WE NEED TO TAKE FROM PROFILE TITLE
 
@@ -311,3 +312,18 @@ class ChatbotMessageSerializer(serializers.Serializer):
         max_length=1000,
         required=True
     )
+
+class JobseekerApplicationStatusSerializer(serializers.ModelSerializer):
+    job_role = serializers.CharField(source="job.role", read_only=True)
+    company_name = serializers.CharField(source="job.company.name", read_only=True)
+
+    class Meta:
+        model = UserAppliedJob
+        fields = [
+            "id",
+            "job",
+            "job_role",
+            "company_name",
+            "status",
+            "applied_at",
+        ]

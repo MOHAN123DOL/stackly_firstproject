@@ -23,7 +23,7 @@ from .serializers import (
     JobcatSerializer,
     JobCategoryListSerializer,
     ChatbotMessageSerializer,
-    
+    JobseekerApplicationStatusSerializer
    
     
 )
@@ -457,13 +457,15 @@ class LandingJobListingAPI(APIView):
 
 
 #for apply job 
-
-
 class ApplyJobAPIView(CreateAPIView):
     serializer_class = ApplyJobSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         job = get_object_or_404(
             Job,
             id=serializer.validated_data["job_id"]
@@ -471,23 +473,42 @@ class ApplyJobAPIView(CreateAPIView):
 
         # Prevent duplicate application
         if UserAppliedJob.objects.filter(
-            user=self.request.user,
+            user=request.user,
             job=job
         ).exists():
             raise ValidationError({"detail": "Already applied"})
 
-        # Create application
-        self.application = UserAppliedJob.objects.create(
-            user=self.request.user,
-            job=job
+        # Get jobseeker profile
+        try:
+            jobseeker_profile = request.user.jobseeker
+        except:
+            raise ValidationError({"detail": "Jobseeker profile not found"})
+
+        uploaded_resume = serializer.validated_data.get("resume")
+
+        # Resume validation logic
+        if not uploaded_resume and not jobseeker_profile.resume:
+            raise ValidationError({
+                "detail": "Upload resume in profile or while applying."
+            })
+
+        resume_to_save = uploaded_resume or jobseeker_profile.resume
+
+        application = UserAppliedJob.objects.create(
+            user=request.user,
+            job=job,
+            resume=resume_to_save
         )
 
-    def create(self, request, *args, **kwargs):
-        super().create(request, *args, **kwargs)
-        return Response(
-            {"detail": "Job applied successfully"},
-            status=201
-        )
+        return Response({
+            "message": "Job applied successfully",
+            "job_id": application.job.id,
+            "job_name": application.job.role,
+            "company": application.job.company.name,
+            "resume_uploaded": bool(application.resume),
+            "status": application.status
+        }, status=201)
+
 
 #for job alert crud 
 class JobAlertCreateAPIView(CreateAPIView):
@@ -814,3 +835,11 @@ class JobseekerInterviewListAPIView(ListAPIView):
     def get_queryset(self):
         jobseeker = JobSeeker.objects.get(user=self.request.user)
         return jobseeker.interviews.all().order_by("interview_date")
+    
+
+class JobseekerApplicationStatusAPIView(ListAPIView):
+    serializer_class = JobseekerApplicationStatusSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return UserAppliedJob.objects.filter(user=self.request.user)

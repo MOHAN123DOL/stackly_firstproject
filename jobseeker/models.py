@@ -157,11 +157,32 @@ class Job(models.Model):
         return f"{self.role} at {self.company.name}"
 
 
-
 class UserAppliedJob(models.Model):
+
+    STATUS_CHOICES = [
+        ("APPLIED", "Applied"),
+        ("UNDER_REVIEW", "Under Review"),
+        ("SHORTLISTED", "Shortlisted"),
+        ("REJECTED", "Rejected"),
+        ("SELECTED", "Selected"),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
+    resume = models.FileField(upload_to="resumes/", null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="APPLIED"
+    )
+
     applied_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "job")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.job.role} - {self.status}"
 
     
 class UserSavedJob(models.Model):
