@@ -6,7 +6,7 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                      JobAlertDetailAPIView, JobAlertMatchesAPIView,
                      JobAlertNewCountAPIView,JobCategoryListAPIView, 
                      JobCategoryAPI , ResumeUploadAPIView ,ProfileCompletionAPIView, SkillAssessmentAPIView,
-                      JobseekerApplicationStatusAPIView , AIChatbotAPIView , JobseekerInterviewListAPIView)
+                      JobseekerApplicationStatusAPIView , AIChatbotAPIView , JobseekerInterviewListAPIView, JobViewTrackAPIView)
 urlpatterns = [
     path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -18,6 +18,7 @@ urlpatterns = [
     path("companies/<int:company_id>/upload-logo/",CompanyLogoUploadAPI.as_view(),name="company-logo-upload"),
     path("jobseeker/opportunities/companies/",JobSeekerOpportunitiesCompanyListAPI.as_view(),name="jobseeker-opportunities-companies"),
     path("opportunities/overview/",JobSeekerOpportunitiesOverviewAPI.as_view(),name="jobseeker-opportunities-overview"),
+    path("jobs/<int:job_id>/view/",JobViewTrackAPIView.as_view(),name="jobseeker-individualjobview"),
     path("landing/jobs/", LandingJobListingAPI.as_view(),name="jobseeker-landing-joblisting"),
     path("jobs/apply/", ApplyJobAPIView.as_view(), name="apply-job"),
     path("job-alerts/create/",JobAlertCreateAPIView.as_view(),name="job-alert-create"),
@@ -30,9 +31,9 @@ urlpatterns = [
     path("profile/resume/",ResumeUploadAPIView.as_view(),name="resume-upload"),
     path("profile/completion_details/",ProfileCompletionAPIView.as_view(),name="profile_completion_details"),
     path("profile/skill-assessment/", SkillAssessmentAPIView.as_view(),name="skills_assessment_score"),
-     path("chatbot/help/", AIChatbotAPIView.as_view(),name="chat-bot"),
-      path("interview/my/", JobseekerInterviewListAPIView.as_view(),name="interview_view"),
-      path("applications/status/", JobseekerApplicationStatusAPIView.as_view(),name="application_view"),
+    path("chatbot/help/", AIChatbotAPIView.as_view(),name="chat-bot"),
+    path("interview/my/", JobseekerInterviewListAPIView.as_view(),name="interview_view"),
+    path("applications/status/", JobseekerApplicationStatusAPIView.as_view(),name="application_view"),
 
 
      ]

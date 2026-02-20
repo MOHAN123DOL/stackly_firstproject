@@ -168,8 +168,8 @@ class UserAppliedJob(models.Model):
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
-    resume = models.FileField(upload_to="resumes/", null=True, blank=True)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True, related_name="applications")
+    resume = models.FileField(upload_to="resumes/", null=True, blank=True,)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -215,5 +215,21 @@ class UnansweredQuestion(models.Model):
 
 
 
+class JobView(models.Model):
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="views"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE
+    )
+    viewed_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ("job", "user")
+
+    def __str__(self):
+        return f"{self.user.username} viewed {self.job.role}"
 

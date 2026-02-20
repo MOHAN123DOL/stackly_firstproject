@@ -7,7 +7,7 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
-from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill
+from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill , JobView
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -17,16 +17,18 @@ from .serializers import (
     CompanyJobSerializer,
     CompanyLogoUploadSerializer,
     OpportunityCompanySerializer,
-    LandingJobSerializer,
     ApplyJobSerializer,
     JobAlertSerializer,
     JobcatSerializer,
     JobCategoryListSerializer,
     ChatbotMessageSerializer,
-    JobseekerApplicationStatusSerializer
+    JobseekerApplicationStatusSerializer,
+    LandingJobSerializer,
    
     
 )
+
+
 from employees.serializers import InterviewSerializer
 from .models import UnansweredQuestion
 from .services import ask_ai , find_best_answer
@@ -394,19 +396,23 @@ class JobSeekerOpportunitiesOverviewAPI(APIView):
         return Response(data, status=200)
 
 
+
+
 class LandingJobListingAPI(APIView):
     permission_classes = [AllowAny]
     pagination_class = LandingJobPagination
 
     def get(self, request):
-        qs = Job.objects.select_related("company")
+        qs = Job.objects.select_related("company").annotate(
+    view_count=Count("views", distinct=True),
+    application_count=Count("applications", distinct=True))
 
         # 🔹 Single-value filters
         role = request.GET.get("role")
         salary = request.GET.get("salary")
         company = request.GET.get("company")
 
-        # 🔹 Multi-value filters (comma-separated)
+        # 🔹 Multi-value filters
         locations = request.GET.get("location")
         durations = request.GET.get("duration")
         salary_min = request.GET.get("salary_min")
@@ -417,7 +423,6 @@ class LandingJobListingAPI(APIView):
 
         if salary_max:
             qs = qs.filter(salary_min__lte=int(salary_max))
-
 
         if role:
             qs = qs.filter(role__icontains=role)
@@ -432,7 +437,7 @@ class LandingJobListingAPI(APIView):
         if locations:
             location_list = [l.strip().lower() for l in locations.split(",")]
             qs = qs.annotate(
-            location_lower=Lower("company__location")
+                location_lower=Lower("company__location")
             ).filter(location_lower__in=location_list)
 
         if durations:
@@ -454,7 +459,6 @@ class LandingJobListingAPI(APIView):
             "total_jobs": qs.count(),
             "jobs": serializer.data
         })
-
 
 #for apply job 
 class ApplyJobAPIView(CreateAPIView):
@@ -843,3 +847,24 @@ class JobseekerApplicationStatusAPIView(ListAPIView):
 
     def get_queryset(self):
         return UserAppliedJob.objects.filter(user=self.request.user)
+
+
+
+
+class JobViewTrackAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, job_id):
+
+        job = get_object_or_404(Job, id=job_id)
+
+        # Create only if not already viewed
+        JobView.objects.get_or_create(
+            job=job,
+            user=request.user
+        )
+
+        return Response({
+            "message": "View recorded",
+            "job_id": job.id
+        })

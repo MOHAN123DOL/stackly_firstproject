@@ -327,3 +327,29 @@ class JobseekerApplicationStatusSerializer(serializers.ModelSerializer):
             "status",
             "applied_at",
         ]
+
+class LandingJobSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source="company.name")
+
+    view_count = serializers.SerializerMethodField()
+    application_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Job
+        fields = [
+            "id",
+            "role",
+            "company_name",
+            "salary_min",
+            "salary_max",
+            "duration",
+            "view_count",
+            "application_count",
+            "posted_on"
+        ]
+
+    def get_view_count(self, obj):
+        return getattr(obj, "view_count", 0)
+
+    def get_application_count(self, obj):
+        return getattr(obj, "application_count", 0)
