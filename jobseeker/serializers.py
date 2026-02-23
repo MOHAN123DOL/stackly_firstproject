@@ -8,7 +8,7 @@ from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCate
 from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
-
+from .models import JobseekerPreference, Skill
 
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -203,22 +203,6 @@ class OpportunityCompanySerializer(serializers.ModelSerializer):
         ]
 
 
-class LandingJobSerializer(serializers.ModelSerializer):
-    company_name = serializers.CharField(source="company.name", read_only=True)
-    company_location = serializers.CharField(source="company.location", read_only=True)
-
-    class Meta:
-        model = Job
-        fields = [
-            "id",
-            "role",
-            "company_name",
-            "company_location",
-            "salary_min",
-            "salary_max",
-            "duration",
-            "posted_on",
-        ]
 #for apply jobs
 
 class ApplyJobSerializer(serializers.Serializer):
@@ -330,7 +314,7 @@ class JobseekerApplicationStatusSerializer(serializers.ModelSerializer):
 
 class LandingJobSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source="company.name")
-
+    company_location = serializers.CharField(source="company.location")
     view_count = serializers.SerializerMethodField()
     application_count = serializers.SerializerMethodField()
 
@@ -340,6 +324,7 @@ class LandingJobSerializer(serializers.ModelSerializer):
             "id",
             "role",
             "company_name",
+            "company_location",
             "salary_min",
             "salary_max",
             "duration",
@@ -353,3 +338,35 @@ class LandingJobSerializer(serializers.ModelSerializer):
 
     def get_application_count(self, obj):
         return getattr(obj, "application_count", 0)
+    
+
+class JobseekerPreferenceSerializer(serializers.ModelSerializer):
+    preferred_skills = serializers.PrimaryKeyRelatedField(
+        queryset=Skill.objects.all(),
+        many=True,
+        required=False
+    )
+
+    class Meta:
+        model = JobseekerPreference
+        fields = "__all__"
+        read_only_fields = ("user",)
+
+    def create(self, validated_data):
+        skills = validated_data.pop("preferred_skills", [])
+        preference = JobseekerPreference.objects.create(**validated_data)
+        preference.preferred_skills.set(skills)
+        return preference
+
+    def update(self, instance, validated_data):
+        skills = validated_data.pop("preferred_skills", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if skills is not None:
+            instance.preferred_skills.set(skills)
+
+        return instance

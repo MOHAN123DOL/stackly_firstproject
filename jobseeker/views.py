@@ -7,6 +7,8 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
+from django.core.cache import cache
+from django.db.models import Count, Q
 from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill , JobView
 from .serializers import (
     JobSeekerAvatarSerializer,
@@ -28,7 +30,9 @@ from .serializers import (
     
 )
 
-
+from rest_framework.generics import RetrieveUpdateAPIView
+from .models import JobseekerPreference
+from .serializers import JobseekerPreferenceSerializer
 from employees.serializers import InterviewSerializer
 from .models import UnansweredQuestion
 from .services import ask_ai , find_best_answer
@@ -454,7 +458,7 @@ class LandingJobListingAPI(APIView):
         page = paginator.paginate_queryset(qs, request)
 
         serializer = LandingJobSerializer(page, many=True)
-
+        print(LandingJobSerializer().get_fields())
         return paginator.get_paginated_response({
             "total_jobs": qs.count(),
             "jobs": serializer.data
@@ -868,3 +872,95 @@ class JobViewTrackAPIView(APIView):
             "message": "View recorded",
             "job_id": job.id
         })
+    
+class JobseekerPreferenceView(RetrieveUpdateAPIView):
+    serializer_class = JobseekerPreferenceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        preference, created = JobseekerPreference.objects.get_or_create(
+            user=self.request.user
+        )
+        return preference
+    
+
+
+class RecommendedJobsAPIView(ListAPIView):
+    serializer_class = LandingJobSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Job.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        user = request.user
+        cache_key = f"recommended_jobs_user_{user.id}"
+
+        # 1️⃣ Check Cache (ONLY ONCE)
+        cached_data = cache.get(cache_key)
+
+        if cached_data is not None:
+           
+            return Response(cached_data)
+
+
+        # 2️⃣ Get preference
+        preference = getattr(user, "preferences", None)
+        if not preference:
+            cache.set(cache_key, [], timeout=600)
+            return Response([])
+
+        preferred_skills = preference.preferred_skills.all()
+        total_skills = preferred_skills.count()
+
+        queryset = Job.objects.all().annotate(
+            matched_skills=Count(
+                "skills_required",
+                filter=Q(skills_required__in=preferred_skills),
+                distinct=True
+            )
+        )
+
+        jobseeker = getattr(user, "jobseeker", None)
+        total_experience = calculate_total_experience(jobseeker) if jobseeker else 0
+
+        jobs_with_score = []
+
+        for job in queryset:
+            score = 0
+
+            if total_skills > 0:
+                score += (job.matched_skills / total_skills) * 40
+
+            if (
+                preference.expected_salary_min is not None and
+                preference.expected_salary_max is not None and
+                job.salary_min is not None and
+                job.salary_max is not None
+            ):
+                if (
+                    job.salary_max >= preference.expected_salary_min and
+                    job.salary_min <= preference.expected_salary_max
+                ):
+                    score += 20
+
+            job_location = getattr(job.company, "location", None)
+
+            if preference.preferred_location and job_location:
+                if preference.preferred_location.lower().strip() == job_location.lower().strip():
+                    score += 20
+
+            if job.min_experience is not None:
+                if total_experience >= job.min_experience:
+                    score += 20
+
+            job.total_score = round(score, 2)
+            jobs_with_score.append(job)
+
+        jobs_with_score.sort(key=lambda x: x.total_score, reverse=True)
+
+        serializer = self.get_serializer(jobs_with_score, many=True)
+        response_data = serializer.data
+
+        # 3️⃣ Save Cache
+        cache.set(cache_key, response_data, timeout=600)
+
+        return Response(response_data)

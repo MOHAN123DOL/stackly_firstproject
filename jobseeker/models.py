@@ -143,14 +143,31 @@ class Job(models.Model):
         blank=True,
         related_name="jobs_category"
     )
+
     role = models.CharField(max_length=200)
-    
-    salary_min = models.IntegerField(help_text="Minimum salary in LPA",blank=True,null=True)
-    salary_max = models.IntegerField(help_text="Maximum salary in LPA",blank=True,null=True)
+
+   
+    skills_required = models.ManyToManyField(
+        Skill,
+        related_name="jobs",
+        blank=True
+    )
+
+
+    min_experience = models.IntegerField(
+        help_text="Minimum experience in years",
+        null=True,
+        blank=True
+    )
+
+    salary_min = models.IntegerField(blank=True, null=True)
+    salary_max = models.IntegerField(blank=True, null=True)
+
     duration = models.CharField(
         max_length=50,
         help_text="Full-time / Internship / Contract"
     )
+
     posted_on = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -233,3 +250,23 @@ class JobView(models.Model):
     def __str__(self):
         return f"{self.user.username} viewed {self.job.role}"
 
+class JobseekerPreference(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="preferences"
+    )
+
+    preferred_skills = models.ManyToManyField(Skill, blank=True)
+
+    preferred_location = models.CharField(max_length=150, blank=True)
+
+    expected_salary_min = models.IntegerField(null=True, blank=True)
+    expected_salary_max = models.IntegerField(null=True, blank=True)
+
+    preferred_duration = models.CharField(
+        max_length=50,
+        blank=True
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)

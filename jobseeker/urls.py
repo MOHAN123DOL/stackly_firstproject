@@ -6,7 +6,8 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                      JobAlertDetailAPIView, JobAlertMatchesAPIView,
                      JobAlertNewCountAPIView,JobCategoryListAPIView, 
                      JobCategoryAPI , ResumeUploadAPIView ,ProfileCompletionAPIView, SkillAssessmentAPIView,
-                      JobseekerApplicationStatusAPIView , AIChatbotAPIView , JobseekerInterviewListAPIView, JobViewTrackAPIView)
+                      JobseekerApplicationStatusAPIView , AIChatbotAPIView ,
+                       RecommendedJobsAPIView, JobseekerInterviewListAPIView, JobViewTrackAPIView , JobseekerPreferenceView)
 urlpatterns = [
     path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -34,8 +35,8 @@ urlpatterns = [
     path("chatbot/help/", AIChatbotAPIView.as_view(),name="chat-bot"),
     path("interview/my/", JobseekerInterviewListAPIView.as_view(),name="interview_view"),
     path("applications/status/", JobseekerApplicationStatusAPIView.as_view(),name="application_view"),
-
-
+    path("preferences/", JobseekerPreferenceView.as_view(), name="jobseeker-preferences"),
+    path("preferences-jobs/", RecommendedJobsAPIView.as_view()),
      ]
 
 
