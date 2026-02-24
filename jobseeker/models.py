@@ -205,6 +205,7 @@ class UserAppliedJob(models.Model):
 class UserSavedJob(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True)
+    is_anonymous = models.BooleanField(default=False)
     saved_at = models.DateTimeField(auto_now_add=True)
 
 
@@ -270,3 +271,37 @@ class JobseekerPreference(models.Model):
     )
 
     updated_at = models.DateTimeField(auto_now=True)
+
+
+class JobseekerPrivacySettings(models.Model):
+    PROFILE_VISIBILITY_CHOICES = [
+        ("public", "Public"),
+        ("recruiters_only", "Recruiters Only"),
+        ("private", "Private"),
+    ]
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="privacy_settings"
+    )
+
+    profile_visibility = models.CharField(
+        max_length=20,
+        choices=PROFILE_VISIBILITY_CHOICES,
+        default="recruiters_only"
+    )
+
+    show_email = models.BooleanField(default=False,help_text="NOTE :if you turn off employer not able to contact you")
+    show_phone = models.BooleanField(default=False,help_text="NOTE :if you turn off employer not able to contact you")
+    show_resume = models.BooleanField(default=True,help_text="NOTE :if you turn off employer not able to contact you")
+    is_searchable = models.BooleanField(default=True,help_text="NOTE :if you turn off employer not able to search you")
+    allow_anonymous_applications = models.BooleanField(default=False)
+    allow_recruiter_messages = models.BooleanField(default=True,help_text="NOTE :if you turn off employer not able to message you")
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Privacy Settings"
+    
+

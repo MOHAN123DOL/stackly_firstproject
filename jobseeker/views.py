@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
 from django.core.cache import cache
 from django.db.models import Count, Q
-from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill , JobView
+from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -26,6 +26,7 @@ from .serializers import (
     ChatbotMessageSerializer,
     JobseekerApplicationStatusSerializer,
     LandingJobSerializer,
+    JobseekerPrivacySettingsSerializer,
    
     
 )
@@ -943,6 +944,7 @@ class RecommendedJobsAPIView(ListAPIView):
                     score += 20
 
             job_location = getattr(job.company, "location", None)
+            
 
             if preference.preferred_location and job_location:
                 if preference.preferred_location.lower().strip() == job_location.lower().strip():
@@ -956,7 +958,6 @@ class RecommendedJobsAPIView(ListAPIView):
             jobs_with_score.append(job)
 
         jobs_with_score.sort(key=lambda x: x.total_score, reverse=True)
-
         serializer = self.get_serializer(jobs_with_score, many=True)
         response_data = serializer.data
 
@@ -964,3 +965,14 @@ class RecommendedJobsAPIView(ListAPIView):
         cache.set(cache_key, response_data, timeout=600)
 
         return Response(response_data)
+    
+
+class JobseekerPrivacySettingsAPIView(RetrieveUpdateAPIView):
+    serializer_class = JobseekerPrivacySettingsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        settings_obj, created = JobseekerPrivacySettings.objects.get_or_create(
+            user=self.request.user
+        )
+        return settings_obj

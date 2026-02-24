@@ -8,7 +8,7 @@ from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCate
 from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
-from .models import JobseekerPreference, Skill
+from .models import JobseekerPreference, Skill ,JobseekerPrivacySettings
 
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -370,3 +370,10 @@ class JobseekerPreferenceSerializer(serializers.ModelSerializer):
             instance.preferred_skills.set(skills)
 
         return instance
+    
+
+class JobseekerPrivacySettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobseekerPrivacySettings
+        fields = "__all__"
+        read_only_fields = ("user",)
