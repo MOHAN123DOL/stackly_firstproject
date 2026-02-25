@@ -303,5 +303,40 @@ class JobseekerPrivacySettings(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Privacy Settings"
-    
 
+
+
+class JobseekerActivityLog(models.Model):
+    ACTION_CHOICES = [
+        ("APPLIED_JOB", "Applied Job"),
+        ("SAVED_JOB", "Saved Job"),
+        ("VIEWED_JOB", "Viewed Job"),
+        ("UPDATED_PROFILE", "Updated Profile"),
+        ("UPLOADED_RESUME", "Uploaded Resume"),
+        ("UPDATED_PREFERENCE", "Updated Preference"),
+        ("UPDATED_PRIVACY", "Updated Privacy Settings"),
+        ("UPDATED_AVATAR", "updated profile picture"),
+        ("REMOVED_AVATAR","removed profile picture"),
+        ("UPDATED_PASSWORD", "password changed"),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="activity_logs"
+    )
+
+    action_type = models.CharField(
+        max_length=50,
+        choices=ACTION_CHOICES
+    )
+
+    description = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action_type}"

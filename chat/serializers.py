@@ -16,7 +16,7 @@ class JobSeekerOpenChatSerializer(serializers.Serializer):
 
         # Only jobs this user applied to
         self.fields["job"].queryset = Job.objects.filter(
-            userappliedjob__user=user
+            applications__user=user
         ).distinct()
 
 
@@ -39,7 +39,7 @@ class EmployerOpenChatSerializer(serializers.Serializer):
 
         # Only jobseekers who applied to company jobs
         self.fields["jobseeker"].queryset = User.objects.filter(
-            userappliedjob__job__in=company_jobs
+            applications__job__in=company_jobs
         ).distinct()
             
 class MessageSerializer(serializers.ModelSerializer):

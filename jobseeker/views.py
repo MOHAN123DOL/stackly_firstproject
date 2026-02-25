@@ -9,7 +9,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import BasePermission
 from django.core.cache import cache
 from django.db.models import Count, Q
-from .models import JobSeeker , UserAppliedJob, UserSavedJob ,Company, Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings
+from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
+Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , JobseekerActivityLog)
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -27,6 +28,7 @@ from .serializers import (
     JobseekerApplicationStatusSerializer,
     LandingJobSerializer,
     JobseekerPrivacySettingsSerializer,
+    JobseekerActivityLogSerializer,
    
     
 )
@@ -36,7 +38,7 @@ from .models import JobseekerPreference
 from .serializers import JobseekerPreferenceSerializer
 from employees.serializers import InterviewSerializer
 from .models import UnansweredQuestion
-from .services import ask_ai , find_best_answer
+from .services import ask_ai , find_best_answer , create_activity_log
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from notifications.utils import create_notification
@@ -117,8 +119,13 @@ class JobSeekerAvatarAPI(GenericAPIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
+#-----------------------------------------------------------------------------
         create_notification(request.user, "Avatar updated successfully")
+        create_activity_log(
+    request.user,
+    "UPDATED_AVATAR",
+    "updated profile picture")
+#-------------------------------------------------------------------------------
         return Response(
             {"message": "Avatar uploaded successfully", "data": serializer.data},
             status=status.HTTP_200_OK
@@ -136,9 +143,14 @@ class JobSeekerAvatarAPI(GenericAPIView):
         jobseeker.avatar.delete(save=False)
         jobseeker.avatar = None
         jobseeker.save()
-
+#---------------------------------------------------------------
         create_notification(request.user, "Avatar removed")
-
+        create_activity_log(
+    request.user,
+    "REMOVED_AVATAR",
+    "removed profile picture"
+)
+#---------------------------------------------------------------
         return Response(
             {"message": "Avatar deleted successfully"},
             status=status.HTTP_200_OK
@@ -155,9 +167,9 @@ class JobSeekerRegistrationAPI(CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.save()
-
+#-------------------------------------------------------------------------------------------
         create_notification(user, "Registration completed successfully")
-
+#------------------------------------------------------------------------------------
         return Response(
             {
                 "success": True,
@@ -201,11 +213,16 @@ class JobSeekerProfileAPI(GenericAPIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
+#----------------------------------------------------------------
         create_notification(
             request.user,
             "Profile updated successfully"
         )
+        create_activity_log(
+    request.user,
+    "UPDATED_PROFILE", "Updated Profile"
+)
+#----------------------------------------------------------------------
 
         return Response(
             serializer.data,
@@ -231,8 +248,13 @@ class ChangePasswordAPI(GenericAPIView):
 
         user.set_password(serializer.validated_data["new_password"])
         user.save()
-
+#----------------------------------------------------------------------------------------
         create_notification(user, "Password changed successfully")
+        create_activity_log(
+    request.user,
+    "UPDATED_PASSWORD", "password changed"
+)
+#-------------------------------------------------------------------------------------
 
         return Response(
             {"message": f"{user.username} Your Password changed successfully"},
@@ -508,6 +530,11 @@ class ApplyJobAPIView(CreateAPIView):
             job=job,
             resume=resume_to_save
         )
+        create_activity_log(
+            request.user,
+            "APPLIED_JOB",
+            f"Applied for {job.role} at {job.company.name}"
+        )
 
         return Response({
             "message": "Job applied successfully",
@@ -705,7 +732,11 @@ class ResumeUploadAPIView(GenericAPIView):
 
                 if profile_updated:
                     jobseeker.save()
-
+        create_activity_log(
+                request.user,
+                "UPLOADED_RESUME",
+                "Uploaded or updated resume"
+            )
         return Response(
             {
                 "detail": "Resume uploaded successfully",
@@ -868,6 +899,11 @@ class JobViewTrackAPIView(APIView):
             job=job,
             user=request.user
         )
+        create_activity_log(
+            request.user,
+            "VIEWED_JOB",
+            f"Viewed {job.role} at {job.company.name}"
+        )
 
         return Response({
             "message": "View recorded",
@@ -882,6 +918,11 @@ class JobseekerPreferenceView(RetrieveUpdateAPIView):
         preference, created = JobseekerPreference.objects.get_or_create(
             user=self.request.user
         )
+        create_activity_log(
+    self.request.user,
+    "UPDATED_PREFERENCE",
+    "Updated job preferences"
+)
         return preference
     
 
@@ -975,4 +1016,20 @@ class JobseekerPrivacySettingsAPIView(RetrieveUpdateAPIView):
         settings_obj, created = JobseekerPrivacySettings.objects.get_or_create(
             user=self.request.user
         )
+        create_activity_log(
+    self.request.user,
+    "UPDATED_PRIVACY",
+    "Updated privacy settings"
+)
         return settings_obj
+    
+
+
+class JobseekerActivityLogAPIView(ListAPIView):
+    serializer_class = JobseekerActivityLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return JobseekerActivityLog.objects.filter(
+            user=self.request.user
+        )

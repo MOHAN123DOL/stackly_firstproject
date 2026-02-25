@@ -7,9 +7,10 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                      JobAlertNewCountAPIView,JobCategoryListAPIView, 
                      JobCategoryAPI , ResumeUploadAPIView ,ProfileCompletionAPIView, SkillAssessmentAPIView,
                       JobseekerApplicationStatusAPIView , AIChatbotAPIView ,
-                       RecommendedJobsAPIView, JobseekerInterviewListAPIView, JobViewTrackAPIView , JobseekerPreferenceView, JobseekerPrivacySettingsAPIView)
+                       RecommendedJobsAPIView, JobseekerInterviewListAPIView, 
+                       JobseekerActivityLogAPIView,JobViewTrackAPIView , JobseekerPreferenceView, JobseekerPrivacySettingsAPIView)
 urlpatterns = [
-    path('jobseeker/avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
+    path('avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
     path("profile/", JobSeekerProfileAPI.as_view(), name="jobseeker-profile"),
     path("api/change-password/", ChangePasswordAPI.as_view(), name="change-password"),
@@ -38,6 +39,7 @@ urlpatterns = [
     path("preferences/", JobseekerPreferenceView.as_view(), name="jobseeker-preferences"),
     path("preferences-jobs/", RecommendedJobsAPIView.as_view(),name="jobseeker-preferences-lists"),
     path("privacy-settings/",JobseekerPrivacySettingsAPIView.as_view(),name="jobseeker-privacy-settings",),
+    path("activity-logs/",JobseekerActivityLogAPIView.as_view(),name="jobseeker-activity-logs"),
      ]
 
 

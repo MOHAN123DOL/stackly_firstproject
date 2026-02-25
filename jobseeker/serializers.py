@@ -8,7 +8,7 @@ from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCate
 from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
-from .models import JobseekerPreference, Skill ,JobseekerPrivacySettings
+from .models import JobseekerPreference, Skill ,JobseekerPrivacySettings , JobseekerActivityLog
 
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -87,6 +87,7 @@ class JobSeekerRegistrationSerializer(serializers.Serializer):
 
 class JobSeekerProfileSerializer(serializers.ModelSerializer):
     welcome = serializers.SerializerMethodField()
+    total_experience = serializers.SerializerMethodField()  
 
     class Meta:
         model = JobSeeker
@@ -106,7 +107,9 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
             return f"Welcome {request.user.username}"
         return "Welcome"
 
-
+    def get_total_experience(self, obj):
+        from .utils.total_experiences_calculator import calculate_total_experience
+        return calculate_total_experience(obj)
 
 
 
@@ -377,3 +380,16 @@ class JobseekerPrivacySettingsSerializer(serializers.ModelSerializer):
         model = JobseekerPrivacySettings
         fields = "__all__"
         read_only_fields = ("user",)
+
+
+
+
+class JobseekerActivityLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobseekerActivityLog
+        fields = [
+            "id",
+            "action_type",
+            "description",
+            "created_at",
+        ]

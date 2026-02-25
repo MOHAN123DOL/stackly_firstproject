@@ -12,6 +12,8 @@ from .models import Conversation, ConversationParticipant, Message
 from .serializers import JobSeekerOpenChatSerializer,EmployerOpenChatSerializer, MessageSerializer , SendMessageSerializer  , InboxSerializer
 from django.contrib.auth.models import User
 from django.db.models import Max, Count, Q
+from jobseeker.services import create_activity_log
+
 
 class OpenChatAPIView(CreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -68,6 +70,11 @@ class OpenChatAPIView(CreateAPIView):
             job=job,
             jobseeker=jobseeker
         )
+        create_activity_log(
+    self.request.user,
+    "UPDATED_conversation",
+    f"Started conversation for {job.role} at {job.company.name}"
+)
 
     
         # Add jobseeker participant

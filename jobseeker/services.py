@@ -5,7 +5,7 @@ from celery import shared_task
 from django.core.cache import cache
 from .models import JobSeeker
 from .utils.total_experiences_calculator import calculate_total_experience
-from .models import HelpIntent
+from .models import HelpIntent , JobseekerActivityLog
 
 import requests
 from django.conf import settings
@@ -120,3 +120,13 @@ def ask_ai(question):
 
     print("Groq Error:", response.text)
     return None
+
+
+
+
+def create_activity_log(user, action_type, description=""):
+    JobseekerActivityLog.objects.create(
+        user=user,
+        action_type=action_type,
+        description=description
+    )
