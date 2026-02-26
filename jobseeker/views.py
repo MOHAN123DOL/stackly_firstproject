@@ -10,7 +10,7 @@ from rest_framework.permissions import BasePermission
 from django.core.cache import cache
 from django.db.models import Count, Q
 from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
-Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , JobseekerActivityLog)
+Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , JobseekerActivityLog, JobRecommendationFeedback)
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -29,6 +29,7 @@ from .serializers import (
     LandingJobSerializer,
     JobseekerPrivacySettingsSerializer,
     JobseekerActivityLogSerializer,
+    JobRecommendationFeedbackSerializer
    
     
 )
@@ -930,21 +931,20 @@ class JobseekerPreferenceView(RetrieveUpdateAPIView):
 class RecommendedJobsAPIView(ListAPIView):
     serializer_class = LandingJobSerializer
     permission_classes = [IsAuthenticated]
+    
+
     queryset = Job.objects.none()
 
     def list(self, request, *args, **kwargs):
         user = request.user
         cache_key = f"recommended_jobs_user_{user.id}"
 
-        # 1️⃣ Check Cache (ONLY ONCE)
+        #  Cache check
         cached_data = cache.get(cache_key)
-
         if cached_data is not None:
-           
             return Response(cached_data)
 
-
-        # 2️⃣ Get preference
+        #  Get preference
         preference = getattr(user, "preferences", None)
         if not preference:
             cache.set(cache_key, [], timeout=600)
@@ -953,6 +953,7 @@ class RecommendedJobsAPIView(ListAPIView):
         preferred_skills = preference.preferred_skills.all()
         total_skills = preferred_skills.count()
 
+        #  Base queryset with skill annotation
         queryset = Job.objects.all().annotate(
             matched_skills=Count(
                 "skills_required",
@@ -961,17 +962,42 @@ class RecommendedJobsAPIView(ListAPIView):
             )
         )
 
+        #  Exclude HIDE jobs
+        queryset = queryset.exclude(
+            recommendation_feedbacks__user=user,
+            recommendation_feedbacks__feedback_type="HIDE"
+        )
+
+        #  Load feedback map
+        feedback_map = {
+            fb.job_id: fb
+            for fb in JobRecommendationFeedback.objects.filter(user=user)
+        }
+
+        #  Get liked job skills (pattern learning)
+        liked_jobs = JobRecommendationFeedback.objects.filter(
+            user=user,
+            feedback_type="LIKE"
+        ).values_list("job_id", flat=True)
+
+        liked_skills = Skill.objects.filter(
+            jobs__id__in=liked_jobs
+        ).distinct()
+
         jobseeker = getattr(user, "jobseeker", None)
         total_experience = calculate_total_experience(jobseeker) if jobseeker else 0
 
         jobs_with_score = []
 
+        #  Scoring loop
         for job in queryset:
             score = 0
 
+            # Skill Score (40%)
             if total_skills > 0:
                 score += (job.matched_skills / total_skills) * 40
 
+            # Salary Score (20%)
             if (
                 preference.expected_salary_min is not None and
                 preference.expected_salary_max is not None and
@@ -984,29 +1010,48 @@ class RecommendedJobsAPIView(ListAPIView):
                 ):
                     score += 20
 
+            # Location Score (20%)
             job_location = getattr(job.company, "location", None)
-            
-
             if preference.preferred_location and job_location:
-                if preference.preferred_location.lower().strip() == job_location.lower().strip():
+                if preference.preferred_location.strip().lower() == job_location.strip().lower():
                     score += 20
 
+            # Experience Score (20%)
             if job.min_experience is not None:
                 if total_experience >= job.min_experience:
                     score += 20
 
-            job.total_score = round(score, 2)
+            #  Feedback Adjustment
+            feedback = feedback_map.get(job.id)
+
+            if feedback:
+                if feedback.feedback_type == "LIKE":
+                    score += 15
+                elif feedback.feedback_type == "DISLIKE":
+                    score -= 20
+                elif feedback.feedback_type == "NOT_RELEVANT":
+                    score -= 30
+
+                if feedback.rating:
+                    score += feedback.rating * 2
+
+            #  Boost jobs with similar skills to liked jobs
+            if job.skills_required.filter(id__in=liked_skills).exists():
+                score += 10
+
+            job.total_score = max(round(score, 2), 0)
             jobs_with_score.append(job)
 
+        # Sort
         jobs_with_score.sort(key=lambda x: x.total_score, reverse=True)
+
         serializer = self.get_serializer(jobs_with_score, many=True)
         response_data = serializer.data
 
-        # 3️⃣ Save Cache
+        #  Save Cache
         cache.set(cache_key, response_data, timeout=600)
 
         return Response(response_data)
-    
 
 class JobseekerPrivacySettingsAPIView(RetrieveUpdateAPIView):
     serializer_class = JobseekerPrivacySettingsSerializer
@@ -1033,3 +1078,24 @@ class JobseekerActivityLogAPIView(ListAPIView):
         return JobseekerActivityLog.objects.filter(
             user=self.request.user
         )
+    
+
+class JobRecommendationFeedbackAPIView(CreateAPIView):
+    serializer_class = JobRecommendationFeedbackSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        job = serializer.validated_data["job"]
+
+        feedback, created = JobRecommendationFeedback.objects.update_or_create(
+            user=user,
+            job=job,
+            defaults={
+                "feedback_type": serializer.validated_data.get("feedback_type"),
+                "rating": serializer.validated_data.get("rating"),
+                "comment": serializer.validated_data.get("comment"),
+            }
+        )
+
+        serializer.instance = feedback

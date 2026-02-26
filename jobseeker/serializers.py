@@ -8,7 +8,7 @@ from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCate
 from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
-from .models import JobseekerPreference, Skill ,JobseekerPrivacySettings , JobseekerActivityLog
+from .models import JobseekerPreference, Skill ,JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback
 
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -320,7 +320,7 @@ class LandingJobSerializer(serializers.ModelSerializer):
     company_location = serializers.CharField(source="company.location")
     view_count = serializers.SerializerMethodField()
     application_count = serializers.SerializerMethodField()
-
+    score = serializers.SerializerMethodField()
     class Meta:
         model = Job
         fields = [
@@ -332,6 +332,7 @@ class LandingJobSerializer(serializers.ModelSerializer):
             "salary_max",
             "duration",
             "view_count",
+            "score",
             "application_count",
             "posted_on"
         ]
@@ -342,6 +343,8 @@ class LandingJobSerializer(serializers.ModelSerializer):
     def get_application_count(self, obj):
         return getattr(obj, "application_count", 0)
     
+    def get_score(self, obj):
+        return getattr(obj, "total_score", 0)
 
 class JobseekerPreferenceSerializer(serializers.ModelSerializer):
     preferred_skills = serializers.PrimaryKeyRelatedField(
@@ -393,3 +396,19 @@ class JobseekerActivityLogSerializer(serializers.ModelSerializer):
             "description",
             "created_at",
         ]
+
+
+class JobRecommendationFeedbackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobRecommendationFeedback
+        fields = [
+            "id",
+            "job",
+            "feedback_type",
+            "rating",
+            "comment",
+            "created_at",
+        ]
+        read_only_fields = ("id", "created_at")
+
+

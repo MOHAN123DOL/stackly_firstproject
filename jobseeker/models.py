@@ -340,3 +340,35 @@ class JobseekerActivityLog(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.action_type}"
+    
+
+class JobRecommendationFeedback(models.Model):
+
+    FEEDBACK_CHOICES = [
+        ("LIKE", "Like"),
+        ("DISLIKE", "Dislike"),
+        ("NOT_RELEVANT", "Not Relevant"),
+        ("HIDE", "Hide"),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="recommendation_feedbacks"
+    )
+
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="recommendation_feedbacks"
+    )
+
+    feedback_type = models.CharField(max_length=30, choices=FEEDBACK_CHOICES)
+    rating = models.IntegerField(null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "job")
+
+
