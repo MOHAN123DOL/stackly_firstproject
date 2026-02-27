@@ -411,4 +411,16 @@ class JobRecommendationFeedbackSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("id", "created_at")
 
+class JobseekerDashboardSummarySerializer(serializers.Serializer):
+    total_applied_jobs = serializers.IntegerField()
+    total_saved_jobs = serializers.IntegerField()
+    total_interviews = serializers.IntegerField()
+    total_job_alerts = serializers.IntegerField()
+
+    recent_applied_jobs = serializers.ListField()
+    recent_saved_jobs = serializers.ListField()
+
+    recommended_jobs = serializers.ListField()
+
+    profile_completion_percentage = serializers.IntegerField()
 

@@ -49,7 +49,7 @@ from datetime import timedelta
 from rest_framework.views import APIView
 from django.db.models import Count
 from django.contrib.auth.models import User
-from employees.models import Employee
+from employees.models import Employee , Interview
 from .services import get_opportunities_overview
 from .pagination import LandingJobPagination
 from django.db.models.functions import Lower
@@ -58,6 +58,8 @@ from .serializers import ResumeUploadSerializer
 from.utils.resume_apyhub import parse_resume_with_rapidapi 
 from datetime import date
 from.utils.total_experiences_calculator import calculate_total_experience
+from .utils.profile_completion_percentage import calculate_profile_completion
+from .utils.job_reccomedation import generate_recommendations
 
 class JobSeekerAvatarAPI(GenericAPIView):
     permission_classes = [IsAuthenticated]
@@ -750,39 +752,13 @@ class ResumeUploadAPIView(GenericAPIView):
     
 
 #for completion percentage of profile
+
 class ProfileCompletionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
-
-        sections = {
-            "first_name": bool(jobseeker.first_name),
-            "last_name": bool(jobseeker.last_name),
-            "education": bool(jobseeker.education),
-            "title": bool(jobseeker.title),
-            "avatar": bool(jobseeker.avatar),
-            "resume": bool(jobseeker.resume),
-            "skills": jobseeker.skills.exists(),
-            "experience": jobseeker.experiences.exists(),
-        }
-
-        total = len(sections)
-        filled = sum(sections.values())
-        percentage = round((filled / total) * 100)
-
-        missing = []   
-
-        for field, status in sections.items():
-            if status == False:    
-                missing.append(field)
-
-        return Response({
-            "completion_percentage": f"{percentage}%" ,
-            "total_fields": total,
-            "filled_fields": filled,
-            "missing_fields": missing
-        })
+        data = calculate_profile_completion(request.user)
+        return Response(data)
     
 
 
@@ -927,128 +903,24 @@ class JobseekerPreferenceView(RetrieveUpdateAPIView):
         return preference
     
 
-
 class RecommendedJobsAPIView(ListAPIView):
     serializer_class = LandingJobSerializer
     permission_classes = [IsAuthenticated]
-    
-
     queryset = Job.objects.none()
 
     def list(self, request, *args, **kwargs):
         user = request.user
         cache_key = f"recommended_jobs_user_{user.id}"
 
-        #  Cache check
         cached_data = cache.get(cache_key)
         if cached_data is not None:
             return Response(cached_data)
 
-        #  Get preference
-        preference = getattr(user, "preferences", None)
-        if not preference:
-            cache.set(cache_key, [], timeout=600)
-            return Response([])
+        jobs = generate_recommendations(user)
 
-        preferred_skills = preference.preferred_skills.all()
-        total_skills = preferred_skills.count()
-
-        #  Base queryset with skill annotation
-        queryset = Job.objects.all().annotate(
-            matched_skills=Count(
-                "skills_required",
-                filter=Q(skills_required__in=preferred_skills),
-                distinct=True
-            )
-        )
-
-        #  Exclude HIDE jobs
-        queryset = queryset.exclude(
-            recommendation_feedbacks__user=user,
-            recommendation_feedbacks__feedback_type="HIDE"
-        )
-
-        #  Load feedback map
-        feedback_map = {
-            fb.job_id: fb
-            for fb in JobRecommendationFeedback.objects.filter(user=user)
-        }
-
-        #  Get liked job skills (pattern learning)
-        liked_jobs = JobRecommendationFeedback.objects.filter(
-            user=user,
-            feedback_type="LIKE"
-        ).values_list("job_id", flat=True)
-
-        liked_skills = Skill.objects.filter(
-            jobs__id__in=liked_jobs
-        ).distinct()
-
-        jobseeker = getattr(user, "jobseeker", None)
-        total_experience = calculate_total_experience(jobseeker) if jobseeker else 0
-
-        jobs_with_score = []
-
-        #  Scoring loop
-        for job in queryset:
-            score = 0
-
-            # Skill Score (40%)
-            if total_skills > 0:
-                score += (job.matched_skills / total_skills) * 40
-
-            # Salary Score (20%)
-            if (
-                preference.expected_salary_min is not None and
-                preference.expected_salary_max is not None and
-                job.salary_min is not None and
-                job.salary_max is not None
-            ):
-                if (
-                    job.salary_max >= preference.expected_salary_min and
-                    job.salary_min <= preference.expected_salary_max
-                ):
-                    score += 20
-
-            # Location Score (20%)
-            job_location = getattr(job.company, "location", None)
-            if preference.preferred_location and job_location:
-                if preference.preferred_location.strip().lower() == job_location.strip().lower():
-                    score += 20
-
-            # Experience Score (20%)
-            if job.min_experience is not None:
-                if total_experience >= job.min_experience:
-                    score += 20
-
-            #  Feedback Adjustment
-            feedback = feedback_map.get(job.id)
-
-            if feedback:
-                if feedback.feedback_type == "LIKE":
-                    score += 15
-                elif feedback.feedback_type == "DISLIKE":
-                    score -= 20
-                elif feedback.feedback_type == "NOT_RELEVANT":
-                    score -= 30
-
-                if feedback.rating:
-                    score += feedback.rating * 2
-
-            #  Boost jobs with similar skills to liked jobs
-            if job.skills_required.filter(id__in=liked_skills).exists():
-                score += 10
-
-            job.total_score = max(round(score, 2), 0)
-            jobs_with_score.append(job)
-
-        # Sort
-        jobs_with_score.sort(key=lambda x: x.total_score, reverse=True)
-
-        serializer = self.get_serializer(jobs_with_score, many=True)
+        serializer = self.get_serializer(jobs, many=True)
         response_data = serializer.data
 
-        #  Save Cache
         cache.set(cache_key, response_data, timeout=600)
 
         return Response(response_data)
@@ -1099,3 +971,107 @@ class JobRecommendationFeedbackAPIView(CreateAPIView):
         )
 
         serializer.instance = feedback
+
+
+class JobseekerDashboardSummaryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = self.request.user
+        cache_key = f"dashboard_summary_user_{user.id}"
+
+        # 🔹 1️⃣ Cache check
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+
+        # 🔹 2️⃣ Aggregate counts (optimized queries)
+        applied_qs = UserAppliedJob.objects.filter(user=user)
+        saved_qs = UserSavedJob.objects.filter(user=user)
+        alerts_qs = JobAlert.objects.filter(user=user)
+        interviews = Interview.objects.filter(jobseeker__user=user)
+        total_applied = applied_qs.count()
+        total_saved = saved_qs.count()
+        total_alerts = alerts_qs.count()
+        total_interviews =interviews.count()
+
+        
+        # 🔹 3️⃣ Recent Applied Jobs (Optimized)
+        recent_applied = list(
+            applied_qs.select_related("job", "job__company")
+            .order_by("-applied_at")[:5]
+            .values(
+                "job__id",
+                "job__role",
+                "job__company__name",
+                "status",
+                "applied_at"
+            )
+        )
+
+        # 🔹 4️⃣ Recent Saved Jobs
+        recent_saved = list(
+            saved_qs.select_related("job", "job__company")
+            .order_by("-saved_at")[:5]
+            .values(
+                "job__id",
+                "job__role",
+                "job__company__name",
+                "saved_at"
+            )
+        )
+
+        # 🔹 5️⃣ Top 3 Recommended Jobs
+        recommended_jobs = generate_recommendations(user)[:3]
+
+        recommended_data = [
+            {
+                "id": job.id,
+                "role": job.role,
+                "company": job.company.name,
+                "score": getattr(job, "total_score", 0),
+            }
+            for job in recommended_jobs
+        ]
+
+        # Profile Completion Breakdown
+        profile_data = calculate_profile_completion(user)
+
+        # Engagement Metrics (Advanced Addition)
+        engagement_score = self.calculate_engagement_score(
+            total_applied,
+            total_saved,
+            total_alerts
+        )
+
+        #  Final Response Structure
+        data = {
+            "counts": {
+                "total_applied_jobs": total_applied,
+                "total_saved_jobs": total_saved,
+                "total_interviews": total_interviews,
+                "total_job_alerts": total_alerts,
+            },
+            "recent_activity": {
+                "recent_applied_jobs": recent_applied,
+                "recent_saved_jobs": recent_saved,
+            },
+            "recommended_jobs": recommended_data,
+            "profile_completion": profile_data,
+            "engagement_score": engagement_score
+        }
+
+        #   Cache result (5 minutes)
+        cache.set(cache_key, data, timeout=300)
+
+        return Response(data)
+
+    #  Advanced Engagement Score
+    def calculate_engagement_score(self, applied, saved, alerts):
+        score = 0
+
+        score += applied * 5
+        score += saved * 2
+        score += alerts * 3
+
+        return min(score, 100)  # cap at 100
