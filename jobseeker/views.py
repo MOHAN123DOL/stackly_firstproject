@@ -39,7 +39,7 @@ from .models import JobseekerPreference
 from .serializers import JobseekerPreferenceSerializer
 from employees.serializers import InterviewSerializer
 from .models import UnansweredQuestion
-from .services import ask_ai , find_best_answer , create_activity_log
+from .services import ask_ai , find_best_answer , create_activity_log , AdvancedProfileStrengthService
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from notifications.utils import create_notification
@@ -60,7 +60,7 @@ from datetime import date
 from.utils.total_experiences_calculator import calculate_total_experience
 from .utils.profile_completion_percentage import calculate_profile_completion
 from .utils.job_reccomedation import generate_recommendations
-
+from .utils.jobseeker_engagement_score import calculate_engagement_score
 class JobSeekerAvatarAPI(GenericAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -1038,7 +1038,7 @@ class JobseekerDashboardSummaryAPIView(APIView):
         profile_data = calculate_profile_completion(user)
 
         # Engagement Metrics (Advanced Addition)
-        engagement_score = self.calculate_engagement_score(
+        engagement_score = calculate_engagement_score(
             total_applied,
             total_saved,
             total_alerts
@@ -1066,12 +1066,11 @@ class JobseekerDashboardSummaryAPIView(APIView):
 
         return Response(data)
 
-    #  Advanced Engagement Score
-    def calculate_engagement_score(self, applied, saved, alerts):
-        score = 0
 
-        score += applied * 5
-        score += saved * 2
-        score += alerts * 3
+class AdvancedProfileStrengthAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
-        return min(score, 100)  # cap at 100
+    def get(self, request):
+        service = AdvancedProfileStrengthService(request.user)
+        data = service.calculate()
+        return Response(data)

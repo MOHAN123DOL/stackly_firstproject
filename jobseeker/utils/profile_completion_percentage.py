@@ -22,7 +22,7 @@ def calculate_profile_completion(user):
     missing = [field for field, status in sections.items() if not status]
 
     return {
-        "completion_percentage": percentage,
+        "completion_percentage": f"{percentage}%",
         "total_fields": total,
         "filled_fields": filled,
         "missing_fields": missing,

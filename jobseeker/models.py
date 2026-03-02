@@ -372,3 +372,6 @@ class JobRecommendationFeedback(models.Model):
         unique_together = ("user", "job")
 
 
+
+
+
