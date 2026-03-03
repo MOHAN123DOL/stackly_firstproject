@@ -30,9 +30,7 @@ from .serializers import (
     JobseekerPrivacySettingsSerializer,
     JobseekerActivityLogSerializer,
     JobRecommendationFeedbackSerializer
-   
-    
-)
+   )
 
 from rest_framework.generics import RetrieveUpdateAPIView
 from .models import JobseekerPreference
@@ -50,7 +48,7 @@ from rest_framework.views import APIView
 from django.db.models import Count
 from django.contrib.auth.models import User
 from employees.models import Employee , Interview
-from .services import get_opportunities_overview
+from .services import get_opportunities_overview , AdvancedWeeklyJobMatchService
 from .pagination import LandingJobPagination
 from django.db.models.functions import Lower
 from .utils.Matching import match_jobs
@@ -61,6 +59,12 @@ from.utils.total_experiences_calculator import calculate_total_experience
 from .utils.profile_completion_percentage import calculate_profile_completion
 from .utils.job_reccomedation import generate_recommendations
 from .utils.jobseeker_engagement_score import calculate_engagement_score
+
+
+
+
+
+
 class JobSeekerAvatarAPI(GenericAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -1074,3 +1078,13 @@ class AdvancedProfileStrengthAPIView(APIView):
         service = AdvancedProfileStrengthService(request.user)
         data = service.calculate()
         return Response(data)
+
+
+
+
+class WeeklyJobMatchAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        service = AdvancedWeeklyJobMatchService(request.user)
+        return Response(service.calculate())

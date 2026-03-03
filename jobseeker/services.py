@@ -1,6 +1,7 @@
 from .models import JobSeeker , Job, UserAppliedJob , UserSavedJob , Company
 from django.core.cache import cache
-
+from datetime import timedelta
+from django.utils.timezone import now
 from celery import shared_task
 from django.core.cache import cache
 from .models import JobSeeker
@@ -388,3 +389,144 @@ class AdvancedProfileStrengthService:
             return "Moderate"
         else:
             return "Needs Improvement"
+        
+
+class AdvancedWeeklyJobMatchService:
+
+    def __init__(self, user):
+        self.user = user
+        self.jobseeker = JobSeeker.objects.get(user=user)
+
+    def calculate(self):
+
+        one_week_ago = now() - timedelta(days=7)
+        jobs = Job.objects.filter(
+            posted_on__gte=one_week_ago
+        ).select_related("company", "category").prefetch_related("skills_required")
+
+        if not jobs.exists():
+            return {
+                "weekly_match_score": 0,
+                "message": "No new jobs this week"
+            }
+
+        user_skills = set(
+            self.jobseeker.skills.values_list("id", flat=True)
+        )
+
+        job_match_data = []
+        category_scores = {}
+        trending_skill_counter = {}
+
+        total_match = 0
+
+        for job in jobs:
+            required_skills = set(
+                job.skills_required.values_list("id", flat=True)
+            )
+
+            if not required_skills:
+                continue
+
+            matched = user_skills.intersection(required_skills)
+
+            match_percentage = int(
+                (len(matched) / len(required_skills)) * 100
+            )
+
+            total_match += match_percentage
+
+            # -------------------------
+            # Top Matching Jobs
+            # -------------------------
+            job_match_data.append({
+                "job_id": job.id,
+                "role": job.role,
+                "company": job.company.name,
+                "match_percentage": match_percentage,
+                "salary_min": job.salary_min,
+                "salary_max": job.salary_max,
+            })
+
+            # -------------------------
+            # Category-wise scoring
+            # -------------------------
+            if job.category:
+                cat_name = job.category.name
+                category_scores.setdefault(cat_name, []).append(match_percentage)
+
+            # -------------------------
+            # Trending skills counter
+            # -------------------------
+            for skill in required_skills:
+                if skill not in user_skills:
+                    trending_skill_counter[skill] = trending_skill_counter.get(skill, 0) + 1
+
+        weekly_score = int(total_match / len(job_match_data))
+
+        # ---------------------------------
+        # Top 5 Best Matching Jobs
+        # ---------------------------------
+        top_jobs = sorted(
+            job_match_data,
+            key=lambda x: x["match_percentage"],
+            reverse=True
+        )[:5]
+
+        # ---------------------------------
+        # Missing Trending Skills
+        # ---------------------------------
+        trending_sorted = sorted(
+            trending_skill_counter.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:5]
+
+        trending_skill_ids = [skill_id for skill_id, _ in trending_sorted]
+
+        missing_trending_skills = list(
+            Skill.objects.filter(id__in=trending_skill_ids)
+            .values_list("name", flat=True)
+        )
+
+        # ---------------------------------
+        # Category-wise Weekly Match
+        # ---------------------------------
+        category_weekly_match = {
+            cat: int(sum(scores) / len(scores))
+            for cat, scores in category_scores.items()
+        }
+
+        # ---------------------------------
+        # Salary Alignment Score
+        # ---------------------------------
+        salary_alignment = self._salary_alignment(jobs)
+       
+        return {
+            "weekly_match_score": weekly_score,
+            "top_most_best_matching_jobs": top_jobs,
+            "missing_trending_skills_this_week": missing_trending_skills,
+            "category_wise_weekly_match": category_weekly_match,
+            "salary_alignment_score": salary_alignment,
+        }
+
+    # --------------------------------------------------
+    # Salary Alignment
+    # --------------------------------------------------
+    def _salary_alignment(self, jobs):
+
+        if not hasattr(self.user, "preferences"):
+            return 0
+
+        pref = self.user.preferences
+
+        if not pref.expected_salary_min:
+            return 0
+
+        matching_jobs = 0
+
+        for job in jobs:
+            if job.salary_min and job.salary_min >= pref.expected_salary_min:
+                matching_jobs += 1
+
+        return int((matching_jobs / jobs.count()) * 100)
