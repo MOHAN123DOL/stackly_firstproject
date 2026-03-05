@@ -10,7 +10,8 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                        RecommendedJobsAPIView, JobseekerInterviewListAPIView, 
                        JobseekerActivityLogAPIView,JobViewTrackAPIView , JobseekerPreferenceView, 
                        JobseekerDashboardSummaryAPIView,JobseekerPrivacySettingsAPIView , 
-                       JobRecommendationFeedbackAPIView , AdvancedProfileStrengthAPIView , WeeklyJobMatchAPIView)
+                       JobRecommendationFeedbackAPIView , AdvancedProfileStrengthAPIView , WeeklyJobMatchAPIView, ApplicationAnalyticsAPIView,
+                       JobseekerPerformanceInsightsAPIView)
 urlpatterns = [
     path('avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -46,6 +47,8 @@ urlpatterns = [
     path("dashboard/summary/",JobseekerDashboardSummaryAPIView.as_view(),name="jobseeker-dashboard-summary"),
     path("profile/advanced-strength/",AdvancedProfileStrengthAPIView.as_view(),name="advanced-profile-strength",),
     path("profile/weekly-market-intelligence/", WeeklyJobMatchAPIView.as_view(),name="weekly-market-intelligence",),
+    path("applications/analytics/",ApplicationAnalyticsAPIView.as_view(),name="application-analytics"),
+    path("performance/insights/", JobseekerPerformanceInsightsAPIView.as_view(), name="jobseeker-performance-insights"),
      ]
 
 

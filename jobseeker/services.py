@@ -436,9 +436,7 @@ class AdvancedWeeklyJobMatchService:
 
             total_match += match_percentage
 
-            # -------------------------
-            # Top Matching Jobs
-            # -------------------------
+
             job_match_data.append({
                 "job_id": job.id,
                 "role": job.role,
@@ -448,34 +446,24 @@ class AdvancedWeeklyJobMatchService:
                 "salary_max": job.salary_max,
             })
 
-            # -------------------------
-            # Category-wise scoring
-            # -------------------------
             if job.category:
                 cat_name = job.category.name
                 category_scores.setdefault(cat_name, []).append(match_percentage)
 
-            # -------------------------
-            # Trending skills counter
-            # -------------------------
+
             for skill in required_skills:
                 if skill not in user_skills:
                     trending_skill_counter[skill] = trending_skill_counter.get(skill, 0) + 1
 
         weekly_score = int(total_match / len(job_match_data))
 
-        # ---------------------------------
-        # Top 5 Best Matching Jobs
-        # ---------------------------------
+
         top_jobs = sorted(
             job_match_data,
             key=lambda x: x["match_percentage"],
             reverse=True
         )[:5]
 
-        # ---------------------------------
-        # Missing Trending Skills
-        # ---------------------------------
         trending_sorted = sorted(
             trending_skill_counter.items(),
             key=lambda x: x[1],
@@ -489,17 +477,12 @@ class AdvancedWeeklyJobMatchService:
             .values_list("name", flat=True)
         )
 
-        # ---------------------------------
-        # Category-wise Weekly Match
-        # ---------------------------------
+
         category_weekly_match = {
             cat: int(sum(scores) / len(scores))
             for cat, scores in category_scores.items()
         }
 
-        # ---------------------------------
-        # Salary Alignment Score
-        # ---------------------------------
         salary_alignment = self._salary_alignment(jobs)
        
         return {
@@ -510,9 +493,6 @@ class AdvancedWeeklyJobMatchService:
             "salary_alignment_score": salary_alignment,
         }
 
-    # --------------------------------------------------
-    # Salary Alignment
-    # --------------------------------------------------
     def _salary_alignment(self, jobs):
 
         if not hasattr(self.user, "preferences"):

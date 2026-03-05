@@ -1088,3 +1088,163 @@ class WeeklyJobMatchAPIView(APIView):
     def get(self, request):
         service = AdvancedWeeklyJobMatchService(request.user)
         return Response(service.calculate())
+    
+
+
+
+class ApplicationAnalyticsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        applications = UserAppliedJob.objects.filter(user=user)
+
+        total_applied = applications.count()
+        selected_jobs = applications.filter(status="SELECTED").count()
+        rejected_jobs = applications.filter(status="REJECTED").count()
+        under_review = applications.filter(status="UNDER_REVIEW").count()
+
+
+        success_rate = 0
+        if total_applied > 0:
+            success_rate = round((selected_jobs / total_applied) * 100, 2)
+
+        response_times = []
+        for app in applications.exclude(status="APPLIED"):
+            response_times.append(
+                (now() - app.applied_at).days
+            )
+
+        avg_response_time = 0
+        if response_times:
+            avg_response_time = round(sum(response_times) / len(response_times), 2)
+
+
+        best_role = (
+            applications
+            .filter(status="SELECTED")
+            .values("job__role")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+            .first()
+        )
+
+        best_company = (
+            applications
+            .filter(status="SELECTED")
+            .values("job__company__name")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+            .first() 
+        )
+
+        return Response({
+            "application_summary": {
+                "total_applied": total_applied,
+                "selected": selected_jobs,
+                "rejected": rejected_jobs,
+                "under_review": under_review
+            },
+            "success_rate": f"{success_rate}%",
+            "average_response_time_days": avg_response_time,
+            "best_performing_role": best_role["job__role"] if best_role else None,
+            "best_company_response": best_company["job__company__name"] if best_company else None
+        })
+
+
+class JobseekerPerformanceInsightsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        cache_key = f"jobseeker_performance_insights_{user.id}"
+
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+
+        applied_qs = UserAppliedJob.objects.filter(user=user).select_related(
+            "job",
+            "job__company",
+        )
+        saved_qs = UserSavedJob.objects.filter(user=user)
+        viewed_qs = JobView.objects.filter(user=user)
+        activity_qs = JobseekerActivityLog.objects.filter(user=user)
+
+        total_applied = applied_qs.count()
+        total_saved = saved_qs.count()
+        total_viewed = viewed_qs.count()
+
+        selected_count = applied_qs.filter(status="SELECTED").count()
+        rejected_count = applied_qs.filter(status="REJECTED").count()
+        under_review_count = applied_qs.filter(status="UNDER_REVIEW").count()
+        pending_count = applied_qs.filter(status="APPLIED").count()
+        processed_count = applied_qs.exclude(status="APPLIED").count()
+
+        conversion_rate = round((selected_count / total_applied) * 100, 2) if total_applied else 0
+        response_rate = round((processed_count / total_applied) * 100, 2) if total_applied else 0
+        view_to_apply_rate = round((total_applied / total_viewed) * 100, 2) if total_viewed else 0
+        save_to_apply_ratio = round((total_saved / total_applied), 2) if total_applied else 0
+
+        since_30_days = now() - timedelta(days=30)
+
+        last_30_days = {
+            "applications": applied_qs.filter(applied_at__gte=since_30_days).count(),
+            "saved_jobs": saved_qs.filter(saved_at__gte=since_30_days).count(),
+            "job_views": viewed_qs.filter(viewed_at__gte=since_30_days).count(),
+            "activities": activity_qs.filter(created_at__gte=since_30_days).count(),
+        }
+
+        total_alerts = JobAlert.objects.filter(user=user, is_active=True).count()
+        profile_completion = calculate_profile_completion(user)
+        engagement_score = calculate_engagement_score(
+            total_applied,
+            total_saved,
+            total_alerts,
+        )
+
+        status_breakdown = list(
+            applied_qs.values("status")
+            .annotate(total=Count("id"))
+            .order_by("-total")
+        )
+
+        top_applied_companies = list(
+            applied_qs.values("job__company__name")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        )
+
+        recent_activity = list(
+            activity_qs.values("action_type", "description", "created_at")[:10]
+        )
+
+        data = {
+            "summary": {
+                "total_applied_jobs": total_applied,
+                "total_saved_jobs": total_saved,
+                "total_viewed_jobs": total_viewed,
+                "selected_jobs": selected_count,
+                "rejected_jobs": rejected_count,
+                "under_review_jobs": under_review_count,
+                "pending_jobs": pending_count,
+            },
+            "performance": {
+                "selection_conversion_rate_percent": conversion_rate,
+                "employer_response_rate_percent": response_rate,
+                "view_to_apply_rate_percent": view_to_apply_rate,
+                "save_to_apply_ratio": save_to_apply_ratio,
+                "engagement_score": engagement_score,
+            },
+            "profile": profile_completion,
+            "application_status_breakdown": status_breakdown,
+            "top_applied_companies": top_applied_companies,
+            "last_30_days": last_30_days,
+            "recent_activity": recent_activity,
+            "generated_at": now(),
+        }
+
+        cache.set(cache_key, data, timeout=180)
+
+        return Response(data)
