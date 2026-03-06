@@ -328,6 +328,7 @@ class LandingJobSerializer(serializers.ModelSerializer):
             "role",
             "company_name",
             "company_location",
+            "min_experience",
             "salary_min",
             "salary_max",
             "duration",

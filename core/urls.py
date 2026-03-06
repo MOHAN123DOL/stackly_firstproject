@@ -30,6 +30,7 @@ from jobseeker.views import CustomLoginAPI
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("__debug__/", include("debug_toolbar.urls")),#for debug
 
     # JWT
     path("login/all/", CustomLoginAPI.as_view(), name="jobseeker-login"),

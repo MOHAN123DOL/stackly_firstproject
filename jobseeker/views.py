@@ -6,6 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.core.paginator import EmptyPage
 from rest_framework.permissions import BasePermission
 from django.core.cache import cache
 from django.db.models import Count, Q
@@ -50,7 +51,6 @@ from django.contrib.auth.models import User
 from employees.models import Employee , Interview
 from .services import get_opportunities_overview , AdvancedWeeklyJobMatchService
 from .pagination import LandingJobPagination
-from django.db.models.functions import Lower
 from .utils.Matching import match_jobs
 from .serializers import ResumeUploadSerializer
 from.utils.resume_apyhub import parse_resume_with_rapidapi 
@@ -436,65 +436,172 @@ class LandingJobListingAPI(APIView):
     permission_classes = [AllowAny]
     pagination_class = LandingJobPagination
 
+    def _parse_int_param(self, value, field_name):
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            raise ValidationError({field_name: "Must be a valid integer."})
+
+    def _build_remote_filter(self, remote_value):
+        if remote_value in (None, ""):
+            return None
+
+        value = remote_value.strip().lower()
+        remote_terms = (
+            Q(company__location__icontains="remote")
+            | Q(company__location__icontains="work from home")
+            | Q(company__location__icontains="wfh")
+        )
+        hybrid_terms = Q(company__location__icontains="hybrid")
+
+        if value in {"true", "1", "yes", "remote"}:
+            return ("filter", remote_terms)
+        if value in {"false", "0", "no", "onsite", "on-site"}:
+            return ("exclude", remote_terms | hybrid_terms)
+        if value == "hybrid":
+            return ("filter", hybrid_terms)
+
+        raise ValidationError(
+            {"remote": "Use one of: true, false, hybrid, remote, onsite."}
+        )
+
     def get(self, request):
-        qs = Job.objects.select_related("company").annotate(
-    view_count=Count("views", distinct=True),
-    application_count=Count("applications", distinct=True))
+        qs = (
+            Job.objects.select_related("company")
+            .prefetch_related("skills_required")
+            .annotate(
+                view_count=Count("views", distinct=True),
+                application_count=Count("applications", distinct=True),
+            )
+        )
 
-        # 🔹 Single-value filters
         role = request.GET.get("role")
-        salary = request.GET.get("salary")
         company = request.GET.get("company")
-
-        # 🔹 Multi-value filters
         locations = request.GET.get("location")
         durations = request.GET.get("duration")
-        salary_min = request.GET.get("salary_min")
-        salary_max = request.GET.get("salary_max")
+        skills = request.GET.get("skills")
+        skills_match = request.GET.get("skills_match", "any").strip().lower()
+        remote_value = request.GET.get("remote")
 
-        if salary_min:
-            qs = qs.filter(salary_max__gte=int(salary_min))
+        salary_min = self._parse_int_param(request.GET.get("salary_min"), "salary_min")
+        salary_max = self._parse_int_param(request.GET.get("salary_max"), "salary_max")
+        experience = self._parse_int_param(request.GET.get("experience"), "experience")
+        experience_min = self._parse_int_param(request.GET.get("experience_min"), "experience_min")
+        experience_max = self._parse_int_param(request.GET.get("experience_max"), "experience_max")
 
-        if salary_max:
-            qs = qs.filter(salary_min__lte=int(salary_max))
+        if salary_min is not None and salary_max is not None and salary_min > salary_max:
+            raise ValidationError(
+                {"salary_range": "salary_min must be less than or equal to salary_max."}
+            )
+
+        if experience is not None and (
+            experience_min is not None or experience_max is not None
+        ):
+            raise ValidationError(
+                {"experience": "Use either experience or experience_min/experience_max, not both."}
+            )
+
+        if (
+            experience_min is not None
+            and experience_max is not None
+            and experience_min > experience_max
+        ):
+            raise ValidationError(
+                {
+                    "experience_range": (
+                        "experience_min must be less than or equal to experience_max."
+                    )
+                }
+            )
 
         if role:
-            qs = qs.filter(role__icontains=role)
-
-        if salary:
-            qs = qs.filter(salary__icontains=salary)
+            qs = qs.filter(role__icontains=role.strip())
 
         if company:
-            company_list = [c.strip() for c in company.split(",")]
-            qs = qs.filter(company__name__in=company_list)
+            company_query = Q()
+            company_list = [item.strip() for item in company.split(",") if item.strip()]
+            for company_name in company_list:
+                company_query |= Q(company__name__iexact=company_name)
+            if company_query:
+                qs = qs.filter(company_query)
 
         if locations:
-            location_list = [l.strip().lower() for l in locations.split(",")]
-            qs = qs.annotate(
-                location_lower=Lower("company__location")
-            ).filter(location_lower__in=location_list)
+            location_query = Q()
+            location_list = [item.strip() for item in locations.split(",") if item.strip()]
+            for location in location_list:
+                location_query |= Q(company__location__icontains=location)
+            if location_query:
+                qs = qs.filter(location_query)
 
         if durations:
-            duration_list = [d.strip().lower() for d in durations.split(",")]
-            qs = qs.annotate(
-                duration_lower=Lower("duration")
-            ).filter(duration_lower__in=duration_list)
+            duration_query = Q()
+            duration_list = [item.strip() for item in durations.split(",") if item.strip()]
+            for duration in duration_list:
+                duration_query |= Q(duration__iexact=duration)
+            if duration_query:
+                qs = qs.filter(duration_query)
 
-        # 🔹 Sort latest first
-        qs = qs.order_by("-posted_on")
+        if salary_min is not None:
+            qs = qs.filter(Q(salary_max__gte=salary_min) | Q(salary_max__isnull=True))
 
-        # 🔹 Pagination
+        if salary_max is not None:
+            qs = qs.filter(Q(salary_min__lte=salary_max) | Q(salary_min__isnull=True))
+
+        if experience is not None:
+            qs = qs.filter(Q(min_experience__lte=experience) | Q(min_experience__isnull=True))
+
+        if experience_min is not None:
+            qs = qs.filter(min_experience__gte=experience_min)
+
+        if experience_max is not None:
+            qs = qs.filter(Q(min_experience__lte=experience_max) | Q(min_experience__isnull=True))
+
+        remote_filter = self._build_remote_filter(remote_value)
+        if remote_filter:
+            mode, condition = remote_filter
+            if mode == "filter":
+                qs = qs.filter(condition)
+            else:
+                qs = qs.exclude(condition)
+
+        if skills:
+            skill_names = [item.strip() for item in skills.split(",") if item.strip()]
+            if not skill_names:
+                raise ValidationError({"skills": "Provide at least one valid skill."})
+
+            if skills_match not in {"any", "all"}:
+                raise ValidationError({"skills_match": "Use either 'any' or 'all'."})
+
+            if skills_match == "all":
+                for skill in skill_names:
+                    qs = qs.filter(skills_required__name__iexact=skill)
+            else:
+                skill_query = Q()
+                for skill in skill_names:
+                    skill_query |= Q(skills_required__name__iexact=skill)
+                qs = qs.filter(skill_query)
+
+        qs = qs.distinct().order_by("-posted_on")
+
         paginator = self.pagination_class()
-        page = paginator.paginate_queryset(qs, request)
+
+        try:
+            page = paginator.paginate_queryset(qs, request)
+        except EmptyPage:
+            request.GET._mutable = True
+            request.GET['page'] = 1
+            page = paginator.paginate_queryset(qs, request)
 
         serializer = LandingJobSerializer(page, many=True)
-        print(LandingJobSerializer().get_fields())
+
         return paginator.get_paginated_response({
-            "total_jobs": qs.count(),
+            "total_jobs": paginator.page.paginator.count,
             "jobs": serializer.data
         })
 
-#for apply job 
+#for apply job
 class ApplyJobAPIView(CreateAPIView):
     serializer_class = ApplyJobSerializer
     permission_classes = [IsAuthenticated]

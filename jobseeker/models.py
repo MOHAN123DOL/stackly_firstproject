@@ -159,6 +159,7 @@ class Job(models.Model):
         null=True,
         blank=True
     )
+   
 
     salary_min = models.IntegerField(blank=True, null=True)
     salary_max = models.IntegerField(blank=True, null=True)
