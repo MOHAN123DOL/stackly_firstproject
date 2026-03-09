@@ -10,6 +10,9 @@ from .models import HelpIntent , JobseekerActivityLog
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from datetime import date
+from math import radians, sin, cos, sqrt, atan2
+from django.db.models import Count
+from rest_framework.exceptions import ValidationError
 
 from .models import (
     JobSeeker,
@@ -510,3 +513,68 @@ class AdvancedWeeklyJobMatchService:
                 matching_jobs += 1
 
         return int((matching_jobs / jobs.count()) * 100)
+    
+
+class NearbyJobService:
+
+    @staticmethod
+    def haversine_distance_km(lat1, lon1, lat2, lon2):
+        earth_radius_km = 6371.0
+
+        lat1 = radians(lat1)
+        lon1 = radians(lon1)
+        lat2 = radians(lat2)
+        lon2 = radians(lon2)
+
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+
+        a = (
+            sin(dlat / 2) ** 2
+            + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+        )
+
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        return earth_radius_km * c
+
+
+    @staticmethod
+    def get_nearby_jobs(latitude, longitude, radius_km, role=None):
+
+        queryset = (
+            Job.objects.select_related("company")
+            .prefetch_related("skills_required")
+            .annotate(
+                view_count=Count("views", distinct=True),
+                application_count=Count("applications", distinct=True),
+            )
+        )
+
+        if role:
+            queryset = queryset.filter(role__icontains=role)
+
+        nearby_jobs = []
+
+        for job in queryset:
+
+            job_lat = job.latitude if job.latitude else job.company.latitude
+            job_lng = job.longitude if job.longitude else job.company.longitude
+
+            if job_lat is None or job_lng is None:
+                continue
+
+            distance = NearbyJobService.haversine_distance_km(
+                latitude,
+                longitude,
+                float(job_lat),
+                float(job_lng),
+            )
+
+            if distance <= radius_km:
+                job.distance_km = distance
+                nearby_jobs.append(job)
+
+        nearby_jobs.sort(key=lambda x: x.distance_km)
+
+        return nearby_jobs

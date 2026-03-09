@@ -28,6 +28,7 @@ from .serializers import (
     ChatbotMessageSerializer,
     JobseekerApplicationStatusSerializer,
     LandingJobSerializer,
+    NearbyJobSerializer,
     JobseekerPrivacySettingsSerializer,
     JobseekerActivityLogSerializer,
     JobRecommendationFeedbackSerializer
@@ -38,13 +39,14 @@ from .models import JobseekerPreference
 from .serializers import JobseekerPreferenceSerializer
 from employees.serializers import InterviewSerializer
 from .models import UnansweredQuestion
-from .services import ask_ai , find_best_answer , create_activity_log , AdvancedProfileStrengthService
+from .services import ask_ai , find_best_answer , create_activity_log , AdvancedProfileStrengthService , NearbyJobService
 from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from notifications.utils import create_notification
 from notifications.models import Notification
 from django.utils.timezone import now
 from datetime import timedelta
+from math import atan2, cos, radians, sin, sqrt
 from rest_framework.views import APIView
 from django.db.models import Count
 from django.contrib.auth.models import User
@@ -600,6 +602,7 @@ class LandingJobListingAPI(APIView):
             "total_jobs": paginator.page.paginator.count,
             "jobs": serializer.data
         })
+
 
 #for apply job
 class ApplyJobAPIView(CreateAPIView):
@@ -1355,3 +1358,101 @@ class JobseekerPerformanceInsightsAPIView(APIView):
         cache.set(cache_key, data, timeout=180)
 
         return Response(data)
+    
+
+class NearbyJobsAPIView(APIView):
+
+    permission_classes = [AllowAny]
+    pagination_class = LandingJobPagination
+
+    def get(self, request):
+
+        latitude = request.GET.get("latitude")
+        longitude = request.GET.get("longitude")
+        radius_km = float(request.GET.get("radius_km", 25))
+        role = request.GET.get("role")
+
+        if not latitude or not longitude:
+            raise ValidationError(
+                {"error": "latitude and longitude are required"}
+            )
+
+        latitude = float(latitude)
+        longitude = float(longitude)
+
+        jobs = NearbyJobService.get_nearby_jobs(
+            latitude,
+            longitude,
+            radius_km,
+            role,
+        )
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(jobs, request)
+
+        serializer = NearbyJobSerializer(page, many=True)
+
+        return paginator.get_paginated_response(
+            {
+                "search_center": {
+                    "latitude": latitude,
+                    "longitude": longitude,
+                },
+                "radius_km": radius_km,
+                "total_jobs": paginator.page.paginator.count,
+                "jobs": serializer.data,
+            }
+        )
+    
+
+
+class NearbyJobsFromProfileAPIView(APIView):
+
+    permission_classes = [IsAuthenticated]
+    pagination_class = LandingJobPagination
+
+    def get(self, request):
+
+        try:
+            jobseeker = JobSeeker.objects.get(user=request.user)
+        except JobSeeker.DoesNotExist:
+            return Response(
+                {"error": "Jobseeker profile not found"},
+                status=404
+            )
+
+        if not jobseeker.latitude or not jobseeker.longitude:
+            return Response(
+                {"message": "Please update your live location"},
+                status=400
+            )
+
+        latitude = float(jobseeker.latitude)
+        longitude = float(jobseeker.longitude)
+
+        radius_km = float(request.GET.get("radius_km", 25))
+        role = request.GET.get("role")
+
+        jobs = NearbyJobService.get_nearby_jobs(
+            latitude,
+            longitude,
+            radius_km,
+            role,
+        )
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(jobs, request)
+
+        serializer = NearbyJobSerializer(page, many=True)
+
+        return paginator.get_paginated_response(
+            {
+                "search_center": {
+                    "latitude": latitude,
+                    "longitude": longitude,
+                },
+                "radius_km": radius_km,
+                "total_jobs": paginator.page.paginator.count,
+                "jobs": serializer.data,
+            }
+        )

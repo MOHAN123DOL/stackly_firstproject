@@ -347,6 +347,19 @@ class LandingJobSerializer(serializers.ModelSerializer):
     def get_score(self, obj):
         return getattr(obj, "total_score", 0)
 
+
+class NearbyJobSerializer(LandingJobSerializer):
+    distance_km = serializers.SerializerMethodField()
+
+    class Meta(LandingJobSerializer.Meta):
+        fields = LandingJobSerializer.Meta.fields + ["distance_km"]
+
+    def get_distance_km(self, obj):
+        distance = getattr(obj, "distance_km", None)
+        if distance is None:
+            return None
+        return round(float(distance), 2)
+
 class JobseekerPreferenceSerializer(serializers.ModelSerializer):
     preferred_skills = serializers.PrimaryKeyRelatedField(
         queryset=Skill.objects.all(),

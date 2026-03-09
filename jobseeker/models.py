@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils.text import slugify
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 class Skill(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -17,6 +18,21 @@ class JobSeeker(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
+    latitude = models.DecimalField(
+    max_digits=8,
+    decimal_places=5,
+    null=True,
+    blank=True,
+    validators=[MinValueValidator(-90), MaxValueValidator(90)],
+)
+
+    longitude = models.DecimalField(
+    max_digits=9,
+    decimal_places=5,
+    null=True,
+    blank=True,
+    validators=[MinValueValidator(-180), MaxValueValidator(180)],
+)
     skills = models.ManyToManyField(
         Skill,
         blank=True,
@@ -98,6 +114,20 @@ class Company(models.Model):
     name = models.CharField(max_length=200, unique=True)
     slug = models.SlugField(unique=True, blank=True) 
     location = models.CharField(max_length=200, blank=True)
+    latitude = models.DecimalField(
+        max_digits=8,
+        decimal_places=5,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-90), MaxValueValidator(90)],
+    )
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=5,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-180), MaxValueValidator(180)],
+    )
     website = models.URLField(blank=True)
     company_logo = models.ImageField(
         upload_to="company_logos/",
@@ -146,6 +176,26 @@ class Job(models.Model):
 
     role = models.CharField(max_length=200)
 
+    latitude = models.DecimalField(
+    max_digits=8,
+    decimal_places=5,
+    null=True,
+    blank=True,
+    validators=[MinValueValidator(-90), MaxValueValidator(90)],
+)
+
+    longitude = models.DecimalField(
+    max_digits=9,
+    decimal_places=5,
+    null=True,
+    blank=True,
+    validators=[MinValueValidator(-180), MaxValueValidator(180)],
+)
+    location_name = models.CharField(
+    max_length=200,
+    blank=True,
+    help_text="City or area of the job"
+)
    
     skills_required = models.ManyToManyField(
         Skill,

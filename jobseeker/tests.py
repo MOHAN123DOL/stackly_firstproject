@@ -163,3 +163,96 @@ class LandingJobAdvancedFilterAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("salary_min", response.data)
+
+
+class NearbyJobsAPITest(APITestCase):
+    def setUp(self):
+        self.url = reverse("nearby-jobs")
+        self.category = JobCategory.objects.create(name="Mobile")
+
+        self.nearest_company = Company.objects.create(
+            name="Nearest Tech",
+            location="Bengaluru",
+            latitude=12.97160,
+            longitude=77.59460,
+        )
+        self.second_company = Company.objects.create(
+            name="Second Tech",
+            location="Bengaluru East",
+            latitude=12.93520,
+            longitude=77.62450,
+        )
+        self.far_company = Company.objects.create(
+            name="Far Tech",
+            location="Chennai",
+            latitude=13.08270,
+            longitude=80.27070,
+        )
+
+        self.nearest_job = Job.objects.create(
+            company=self.nearest_company,
+            category=self.category,
+            role="Android Developer",
+            duration="Full-time",
+            salary_min=8,
+            salary_max=15,
+        )
+        self.second_job = Job.objects.create(
+            company=self.second_company,
+            category=self.category,
+            role="Flutter Developer",
+            duration="Full-time",
+            salary_min=7,
+            salary_max=14,
+        )
+        self.far_job = Job.objects.create(
+            company=self.far_company,
+            category=self.category,
+            role="iOS Developer",
+            duration="Contract",
+            salary_min=10,
+            salary_max=18,
+        )
+
+    def test_returns_jobs_within_radius_sorted_by_distance(self):
+        response = self.client.get(
+            self.url,
+            {
+                "latitude": 12.97160,
+                "longitude": 77.59460,
+                "radius_km": 20,
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        jobs = response.data["results"]["jobs"]
+        job_ids = [job["id"] for job in jobs]
+
+        self.assertEqual(response.data["results"]["total_jobs"], 2)
+        self.assertEqual(job_ids, [self.nearest_job.id, self.second_job.id])
+        self.assertNotIn(self.far_job.id, job_ids)
+        self.assertLessEqual(jobs[0]["distance_km"], jobs[1]["distance_km"])
+
+    def test_missing_latitude_returns_bad_request(self):
+        response = self.client.get(
+            self.url,
+            {
+                "longitude": 77.59460,
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("latitude", response.data)
+
+    def test_invalid_radius_returns_bad_request(self):
+        response = self.client.get(
+            self.url,
+            {
+                "latitude": 12.97160,
+                "longitude": 77.59460,
+                "radius_km": 0,
+            },
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("radius_km", response.data)
