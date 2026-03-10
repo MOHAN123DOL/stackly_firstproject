@@ -1456,3 +1456,45 @@ class NearbyJobsFromProfileAPIView(APIView):
                 "jobs": serializer.data,
             }
         )
+    
+class SimilarJobsAPIView(APIView):
+
+    permission_classes = [AllowAny]
+    pagination_class = LandingJobPagination
+    def get(self, request, job_id):
+
+        try:
+            job = Job.objects.select_related(
+                "company",
+                "category"
+            ).prefetch_related(
+                "skills_required"
+            ).get(id=job_id)
+
+        except Job.DoesNotExist:
+            return Response({"error": "Job not found"}, status=404)
+
+        job_skills = job.skills_required.all()
+
+        similar_jobs = (
+            Job.objects.select_related("company", "category")
+            .prefetch_related("skills_required")
+            .filter(category=job.category)
+            .exclude(id=job.id)
+            .filter(
+                Q(role__icontains=job.role) |
+                Q(skills_required__in=job_skills)
+            )
+            .distinct()[:10]
+        )
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(similar_jobs, request)
+
+        serializer = LandingJobSerializer(page, many=True)
+        return paginator.get_paginated_response(
+            {
+                "total_jobs": paginator.page.paginator.count,
+                "jobs": serializer.data,
+            }
+        )
+        

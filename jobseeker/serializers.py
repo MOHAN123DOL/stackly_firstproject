@@ -314,18 +314,20 @@ class JobseekerApplicationStatusSerializer(serializers.ModelSerializer):
             "status",
             "applied_at",
         ]
-
 class LandingJobSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source="company.name")
     company_location = serializers.CharField(source="company.location")
     view_count = serializers.SerializerMethodField()
     application_count = serializers.SerializerMethodField()
     score = serializers.SerializerMethodField()
+    skills = serializers.SerializerMethodField()
+
     class Meta:
         model = Job
         fields = [
             "id",
             "role",
+            "skills",
             "company_name",
             "company_location",
             "min_experience",
@@ -343,9 +345,12 @@ class LandingJobSerializer(serializers.ModelSerializer):
 
     def get_application_count(self, obj):
         return getattr(obj, "application_count", 0)
-    
+
     def get_score(self, obj):
         return getattr(obj, "total_score", 0)
+
+    def get_skills(self, obj):
+        return [skill.name for skill in obj.skills_required.all()]
 
 
 class NearbyJobSerializer(LandingJobSerializer):
