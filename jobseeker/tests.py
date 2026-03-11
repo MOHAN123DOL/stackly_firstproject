@@ -7,7 +7,9 @@ from jobseeker.models import (
     Company,
     Job,
     JobCategory,
+    JobSeeker,
     JobseekerActivityLog,
+    ProjectPortfolio,
     Skill,
     JobView,
     UserAppliedJob,
@@ -256,3 +258,73 @@ class NearbyJobsAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("radius_km", response.data)
+
+
+class ProjectPortfolioAPITest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="portfolio_user",
+            email="portfolio@example.com",
+            password="StrongPass123!",
+        )
+        self.other_user = User.objects.create_user(
+            username="other_user",
+            email="other@example.com",
+            password="StrongPass123!",
+        )
+
+        self.client.force_authenticate(user=self.user)
+        self.list_url = reverse("project-portfolio-list-create")
+
+    def test_create_and_list_project_portfolio(self):
+        create_response = self.client.post(
+            self.list_url,
+            {
+                "title": "Job Portal Revamp",
+                "description": "Rebuilt the job search flow with DRF APIs.",
+                "tech_stack": "Django, DRF, PostgreSQL",
+                "project_url": "https://example.com/portfolio/project",
+                "github_url": "https://github.com/example/project",
+                "start_date": "2025-01-01",
+                "end_date": "2025-06-30",
+                "is_ongoing": False,
+            },
+            format="json",
+        )
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ProjectPortfolio.objects.filter(jobseeker__user=self.user).count(), 1)
+
+        list_response = self.client.get(self.list_url)
+
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["title"], "Job Portal Revamp")
+
+    def test_user_cannot_access_another_users_project(self):
+        other_jobseeker = JobSeeker.objects.create(user=self.other_user)
+        other_project = ProjectPortfolio.objects.create(
+            jobseeker=other_jobseeker,
+            title="Other User Project",
+            description="Private project",
+        )
+        detail_url = reverse("project-portfolio-detail", kwargs={"pk": other_project.id})
+
+        response = self.client.get(detail_url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_invalid_date_range_returns_bad_request(self):
+        response = self.client.post(
+            self.list_url,
+            {
+                "title": "Invalid Dates Project",
+                "start_date": "2025-10-01",
+                "end_date": "2025-02-01",
+                "is_ongoing": False,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("end_date", response.data)

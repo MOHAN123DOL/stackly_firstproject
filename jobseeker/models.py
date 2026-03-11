@@ -76,6 +76,34 @@ class JobExperience(models.Model):
         return f"{self.company_name} - {self.role}"
 
 
+class ProjectPortfolio(models.Model):
+    jobseeker = models.ForeignKey(
+        JobSeeker,
+        on_delete=models.CASCADE,
+        related_name="project_portfolios"
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    tech_stack = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="Comma separated technologies"
+    )
+    project_url = models.URLField(blank=True)
+    github_url = models.URLField(blank=True)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    is_ongoing = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-created_at"]
+
+    def __str__(self):
+        return f"{self.jobseeker.user.username} - {self.title}"
+
+
 
 class JobAlert(models.Model):
     user = models.ForeignKey(

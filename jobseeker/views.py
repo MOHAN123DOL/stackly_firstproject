@@ -1,4 +1,4 @@
-from rest_framework.generics import GenericAPIView , ListAPIView , CreateAPIView , RetrieveUpdateDestroyAPIView
+from rest_framework.generics import GenericAPIView , ListAPIView , CreateAPIView , RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
@@ -11,7 +11,7 @@ from rest_framework.permissions import BasePermission
 from django.core.cache import cache
 from django.db.models import Count, Q
 from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
-Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , JobseekerActivityLog, JobRecommendationFeedback)
+Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio)
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -31,7 +31,8 @@ from .serializers import (
     NearbyJobSerializer,
     JobseekerPrivacySettingsSerializer,
     JobseekerActivityLogSerializer,
-    JobRecommendationFeedbackSerializer
+    JobRecommendationFeedbackSerializer,
+    ProjectPortfolioSerializer
    )
 
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -236,6 +237,32 @@ class JobSeekerProfileAPI(GenericAPIView):
         return Response(
             serializer.data,
             status=status.HTTP_200_OK
+        )
+
+
+class ProjectPortfolioListCreateAPIView(ListCreateAPIView):
+    serializer_class = ProjectPortfolioSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ProjectPortfolio.objects.filter(
+            jobseeker__user=self.request.user
+        ).order_by("-updated_at")
+
+    def perform_create(self, serializer):
+        jobseeker, _ = JobSeeker.objects.get_or_create(
+            user=self.request.user
+        )
+        serializer.save(jobseeker=jobseeker)
+
+
+class ProjectPortfolioDetailAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = ProjectPortfolioSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return ProjectPortfolio.objects.filter(
+            jobseeker__user=self.request.user
         )
 
 

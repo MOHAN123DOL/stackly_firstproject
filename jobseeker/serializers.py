@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from .models import JobSeeker  
 from django.contrib.auth import authenticate
 from rest_framework.exceptions import AuthenticationFailed  
-from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCategory
+from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCategory, ProjectPortfolio
 from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
@@ -292,6 +292,51 @@ class ResumeUploadSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Only PDF or DOC files are allowed.")
 
         return value
+
+
+class ProjectPortfolioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectPortfolio
+        fields = [
+            "id",
+            "title",
+            "description",
+            "tech_stack",
+            "project_url",
+            "github_url",
+            "start_date",
+            "end_date",
+            "is_ongoing",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        start_date = attrs.get(
+            "start_date",
+            self.instance.start_date if self.instance else None
+        )
+        end_date = attrs.get(
+            "end_date",
+            self.instance.end_date if self.instance else None
+        )
+        is_ongoing = attrs.get(
+            "is_ongoing",
+            self.instance.is_ongoing if self.instance else False
+        )
+
+        if is_ongoing and end_date:
+            raise serializers.ValidationError(
+                {"end_date": "End date must be empty for ongoing projects."}
+            )
+
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError(
+                {"end_date": "End date cannot be earlier than start date."}
+            )
+
+        return attrs
 
 
 class ChatbotMessageSerializer(serializers.Serializer):
