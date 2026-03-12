@@ -240,30 +240,7 @@ class JobSeekerProfileAPI(GenericAPIView):
         )
 
 
-class ProjectPortfolioListCreateAPIView(ListCreateAPIView):
-    serializer_class = ProjectPortfolioSerializer
-    permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return ProjectPortfolio.objects.filter(
-            jobseeker__user=self.request.user
-        ).order_by("-updated_at")
-
-    def perform_create(self, serializer):
-        jobseeker, _ = JobSeeker.objects.get_or_create(
-            user=self.request.user
-        )
-        serializer.save(jobseeker=jobseeker)
-
-
-class ProjectPortfolioDetailAPIView(RetrieveUpdateDestroyAPIView):
-    serializer_class = ProjectPortfolioSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return ProjectPortfolio.objects.filter(
-            jobseeker__user=self.request.user
-        )
 
 
 class ChangePasswordAPI(GenericAPIView):
@@ -1524,4 +1501,26 @@ class SimilarJobsAPIView(APIView):
                 "jobs": serializer.data,
             }
         )
+    
+
+
+class ProjectPortfolioListApiView(ListCreateAPIView):
+    permission_classes =[IsAuthenticated]
+    serializer_class = ProjectPortfolioSerializer
+    def get_queryset(self):
+        return ProjectPortfolio.objects.select_related("jobseeker__user").filter(jobseeker__user=self.request.user)
+    def perform_create(self, serializer):
+        jobseeker = JobSeeker.objects.get(user=self.request.user)
+        serializer.save(jobseeker=jobseeker)
+    
+
+
+class ProjectPortfolioListApiViewSpecific(RetrieveUpdateDestroyAPIView):
+    permission_classes =[IsAuthenticated]
+    serializer_class = ProjectPortfolioSerializer
+    def get_queryset(self):
+        pk= self.kwargs["pk"]
+        return ProjectPortfolio.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user)
+
         
+

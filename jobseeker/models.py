@@ -10,7 +10,7 @@ class Skill(models.Model):
         return self.name
 
 class JobSeeker(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE,related_name="jobuser")
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     phone = models.CharField(max_length=15, blank=True)
     resume = models.FileField(upload_to="resumes/", null=True, blank=True)
@@ -99,6 +99,7 @@ class ProjectPortfolio(models.Model):
 
     class Meta:
         ordering = ["-updated_at", "-created_at"]
+        unique_together = ("title", "jobseeker")
 
     def __str__(self):
         return f"{self.jobseeker.user.username} - {self.title}"

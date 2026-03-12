@@ -13,7 +13,7 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                        JobRecommendationFeedbackAPIView , AdvancedProfileStrengthAPIView , WeeklyJobMatchAPIView, ApplicationAnalyticsAPIView,
                        NearbyJobsAPIView,
                        JobseekerPerformanceInsightsAPIView, NearbyJobsFromProfileAPIView,  SimilarJobsAPIView,
-                       ProjectPortfolioListCreateAPIView, ProjectPortfolioDetailAPIView)
+                       ProjectPortfolioListApiView,ProjectPortfolioListApiViewSpecific)
 urlpatterns = [
     path('avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -36,8 +36,8 @@ urlpatterns = [
     path( "job-categories/list/",JobCategoryListAPIView.as_view(), name="job-category-lists"), 
     path("job-categories/list/<int:category_id>/",JobCategoryAPI.as_view(),name="job-category-jobs"),
     path("profile/resume/",ResumeUploadAPIView.as_view(),name="resume-upload"),
-    path("profile/projects/", ProjectPortfolioListCreateAPIView.as_view(), name="project-portfolio-list-create"),
-    path("profile/projects/<int:pk>/", ProjectPortfolioDetailAPIView.as_view(), name="project-portfolio-detail"),
+    path("profile/projects/", ProjectPortfolioListApiView.as_view(), name="project-portfolio-list-create"),
+    path("profile/projects/<int:pk>/", ProjectPortfolioListApiViewSpecific.as_view(), name="project-portfolio-detail"),
     path("profile/completion_details/",ProfileCompletionAPIView.as_view(),name="profile_completion_details"),
     path("profile/skill-assessment/", SkillAssessmentAPIView.as_view(),name="skills_assessment_score"),
     path("chatbot/help/", AIChatbotAPIView.as_view(),name="chat-bot"),

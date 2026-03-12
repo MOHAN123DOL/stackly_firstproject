@@ -8,8 +8,9 @@ from .models import Job, UserAppliedJob ,Company , JobSeeker ,JobAlert , JobCate
 from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
-from .models import JobseekerPreference, Skill ,JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback
-
+from .models import (JobseekerPreference, Skill ,
+                     JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback,ProjectPortfolio)
+from datetime import date
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -295,48 +296,49 @@ class ResumeUploadSerializer(serializers.ModelSerializer):
 
 
 class ProjectPortfolioSerializer(serializers.ModelSerializer):
+    start_date = serializers.DateField()
+    end_date = serializers.DateField(required=False,allow_null=True)
+    updated_at =  serializers.DateTimeField(read_only = True) 
+    created_at = serializers.DateTimeField(read_only = True)
+    user_name =  serializers.CharField(source="jobseeker.user.username", read_only = True)
     class Meta:
         model = ProjectPortfolio
         fields = [
-            "id",
-            "title",
-            "description",
-            "tech_stack",
-            "project_url",
-            "github_url",
-            "start_date",
-            "end_date",
-            "is_ongoing",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+                    "id",
+                    "user_name",
+                    "title",
+                    "description",
+                    "start_date",
+                    "end_date",
+                    "is_ongoing",
+                    "created_at",
+                    "tech_stack",
+                    "updated_at",
+                    "github_url",
+                    "project_url",
 
-    def validate(self, attrs):
-        start_date = attrs.get(
-            "start_date",
-            self.instance.start_date if self.instance else None
-        )
-        end_date = attrs.get(
-            "end_date",
-            self.instance.end_date if self.instance else None
-        )
-        is_ongoing = attrs.get(
-            "is_ongoing",
-            self.instance.is_ongoing if self.instance else False
-        )
+                            ]
+    
+    def validate(self, data):
+        request = self.context["request"]
+        start = data.get("start_date", self.instance.start_date if self.instance else None)
+        end = data.get("end_date", self.instance.end_date if self.instance else None)
+        on_going = data.get("is_ongoing", self.instance.is_ongoing if self.instance else False)
+        title = data.get("title", self.instance.title if self.instance else None) 
+        if on_going and end:
+            raise serializers.ValidationError("ongoing project not need end date ")
+        if start and end:
+            if start > end :
+                raise serializers.ValidationError("start date must be lower than end date")
+        query=ProjectPortfolio.objects.select_related("jobseeker__user").filter(title=title,jobseeker__user=request.user)
+        if self.instance:
+            query=query.exclude(id=self.instance.id)
+        if query.exists():
+            raise serializers.ValidationError("already you have one with same title") 
+        return data
 
-        if is_ongoing and end_date:
-            raise serializers.ValidationError(
-                {"end_date": "End date must be empty for ongoing projects."}
-            )
 
-        if start_date and end_date and end_date < start_date:
-            raise serializers.ValidationError(
-                {"end_date": "End date cannot be earlier than start date."}
-            )
 
-        return attrs
 
 
 class ChatbotMessageSerializer(serializers.Serializer):
