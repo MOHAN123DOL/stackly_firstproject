@@ -4,7 +4,8 @@ from .views import (
     EmployerForgotPasswordOTPAPI,
     ResetPasswordWithOTPAPI,
     EmployeeRegistrationAPI,
-    JobCreateAPIView , JobCategoryCreateAPIView ,JobCategoryAPIView , ScheduleInterviewAPIView , EmployerJobApplicationsAPIView , EmployerUpdateApplicationStatusAPIView
+    JobCreateAPIView , 
+    ResumeDownloadAPIView,JobCategoryCreateAPIView ,JobCategoryAPIView , ScheduleInterviewAPIView , EmployerJobApplicationsAPIView , EmployerUpdateApplicationStatusAPIView
 )
 
 urlpatterns = [
@@ -18,6 +19,7 @@ urlpatterns = [
     path("interview/schedule/", ScheduleInterviewAPIView.as_view(),name="interview_schedule"),
     path("job/<int:job_id>/applications/",EmployerJobApplicationsAPIView.as_view(),name="job-application-view-list"),
     path( "application/<int:pk>/update-status/", EmployerUpdateApplicationStatusAPIView.as_view(),name="status-application-change"),
+    path("resume/download/<int:pk>/",ResumeDownloadAPIView.as_view(),name="resume-download"),
     
 
 ]

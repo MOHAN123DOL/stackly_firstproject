@@ -1,5 +1,6 @@
-from rest_framework.generics import GenericAPIView , ListAPIView , CreateAPIView , RetrieveUpdateDestroyAPIView, ListCreateAPIView
+from rest_framework.generics import GenericAPIView , ListAPIView , CreateAPIView , RetrieveUpdateDestroyAPIView, ListCreateAPIView 
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import mixins
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -11,7 +12,8 @@ from rest_framework.permissions import BasePermission
 from django.core.cache import cache
 from django.db.models import Count, Q
 from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
-Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio)
+Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , 
+JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle)
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -32,7 +34,8 @@ from .serializers import (
     JobseekerPrivacySettingsSerializer,
     JobseekerActivityLogSerializer,
     JobRecommendationFeedbackSerializer,
-    ProjectPortfolioSerializer
+    ProjectPortfolioSerializer,
+    resumetoggleserializer
    )
 
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -1522,5 +1525,18 @@ class ProjectPortfolioListApiViewSpecific(RetrieveUpdateDestroyAPIView):
         pk= self.kwargs["pk"]
         return ProjectPortfolio.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user)
 
-        
+
+class ResumeToggleApiView(RetrieveUpdateAPIView):
+    permission_classes =[IsAuthenticated]
+    serializer_class = resumetoggleserializer
+    def get_object(self):
+        resume_option, created = resumetoggle.objects.select_related("user").get_or_create(
+            user=self.request.user
+        )
+    
+        return resume_option
+    
+
+
+
 

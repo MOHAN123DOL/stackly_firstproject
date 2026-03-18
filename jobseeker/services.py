@@ -578,3 +578,6 @@ class NearbyJobService:
         nearby_jobs.sort(key=lambda x: x.distance_km)
 
         return nearby_jobs
+
+
+

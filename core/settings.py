@@ -159,13 +159,10 @@ SIMPLE_JWT = {
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "recommended-jobs-cache",
+        "LOCATION": "127.0.0.1:11211",
     }
 }
 
-CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

@@ -1,10 +1,11 @@
 from rest_framework.generics import GenericAPIView ,CreateAPIView , ListAPIView ,RetrieveUpdateDestroyAPIView , RetrieveUpdateAPIView
 from rest_framework.response import Response
+from rest_framework.generics import mixins
 from rest_framework import status
 from django.contrib.auth.models import User 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from jobseeker.models import Job , JobCategory
+from jobseeker.models import Job , JobCategory , resumetoggle
 import random
 from .models import PasswordResetOTP , Interview , Employee
 from django.utils.timezone import now
@@ -305,4 +306,55 @@ class EmployerUpdateApplicationStatusAPIView(RetrieveUpdateAPIView):
                 sender=self.request.user,
                 text=f"Your application status has been updated to {application.status}."
             )
+
+class ResumeDownloadAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request, pk):
+        user_id = pk
+
+        jobseeker =JobSeeker.objects.select_related("user").get(user_id=user_id)
+        if not jobseeker:
+            return Response({"message": "jobseeker is not found"},status=status.HTTP_404_NOT_FOUND)       
+        if not jobseeker.resume:
+            return Response(
+                {"message": "Resume not uploaded"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        choice = resumetoggle.objects.filter(user_id=user_id).first()
+        if not choice:
+            return Response({"message": "Resume settings not found"},status=status.HTTP_404_NOT_FOUND)
+        if choice.is_private:
+            return Response({"message": "User has hidden their resume"},status=status.HTTP_403_FORBIDDEN)
+        if choice.is_public:
+            return Response(
+                {
+                    "message": "fetch sucessfully",
+                    "resume_url": jobseeker.resume.url
+                },
+                status=status.HTTP_200_OK
+            )
+        if choice.is_recruiters_only:
+            company = Company.objects.filter(employees__user=request.user).first()
+            if not company:
+                return Response(
+                    {"message": "Employer company not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            has_applied = UserAppliedJob.objects.filter(
+                user_id=user_id,
+                job__company=company
+            ).exists()
+
+            if not has_applied:
+                return Response({"message": "Access denied: User did not apply to your jobs"},status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {
+                    "message": "fetch successfully ",
+                    "resume_url": jobseeker.resume.url
+                },
+                status=status.HTTP_200_OK
+            )
+        
+        
 

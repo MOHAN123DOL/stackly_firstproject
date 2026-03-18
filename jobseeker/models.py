@@ -99,7 +99,6 @@ class ProjectPortfolio(models.Model):
 
     class Meta:
         ordering = ["-updated_at", "-created_at"]
-        unique_together = ("title", "jobseeker")
 
     def __str__(self):
         return f"{self.jobseeker.user.username} - {self.title}"
@@ -453,5 +452,15 @@ class JobRecommendationFeedback(models.Model):
 
 
 
+class resumetoggle(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="resume_toggle"
+    )
+    is_public = models.BooleanField(default=True,help_text="it allows all user of this app can accesss your resume")
+    is_recruiters_only=models.BooleanField(default=False,help_text="it allow only verified recruiters to access your resume")
+    is_private=models.BooleanField(default=False,help_text="no one allow to view your resume untill you aplly the job with resume")
+    updated_at = models.DateTimeField(auto_now=True)
 
 

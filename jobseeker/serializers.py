@@ -9,8 +9,9 @@ from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from .models import (JobseekerPreference, Skill ,
-                     JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback,ProjectPortfolio)
+                     JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback,ProjectPortfolio , resumetoggle)
 from datetime import date
+
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
     class Meta:
@@ -489,4 +490,30 @@ class JobseekerDashboardSummarySerializer(serializers.Serializer):
     recommended_jobs = serializers.ListField()
 
     profile_completion_percentage = serializers.IntegerField()
+
+class resumetoggleserializer(serializers.ModelSerializer):
+   
+    class Meta:
+        model= resumetoggle
+        fields =[
+            "is_public",
+            "is_recruiters_only",
+            "is_private",
+        ]
+    def validate(self, data):
+        ispublic = data.get("is_public",self.instance.is_public if self.instance else False)
+        Isrecruiters_only =data.get("is_recruiters_only",self.instance.is_recruiters_only if self.instance else False)
+        Isprivate = data.get("is_private",self.instance.is_private if self.instance else False)
+        if (ispublic and Isrecruiters_only and Isprivate) or (ispublic and Isrecruiters_only) or (ispublic and Isprivate) or(Isprivate and Isrecruiters_only) :
+             raise serializers.ValidationError("only one can be true ")  
+        if (ispublic or Isrecruiters_only or Isprivate):  
+            return data
+        else:
+            raise serializers.ValidationError("atleast anything will be true") 
+
+
+
+        
+
+        
 
