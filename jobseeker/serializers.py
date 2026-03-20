@@ -9,7 +9,7 @@ from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from .models import (JobseekerPreference, Skill ,
-                     JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback,ProjectPortfolio , resumetoggle)
+                     JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol)
 from datetime import date
 
 
@@ -510,6 +510,17 @@ class resumetoggleserializer(serializers.ModelSerializer):
             return data
         else:
             raise serializers.ValidationError("atleast anything will be true") 
+        
+
+class resumeversioncontrolserializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username")
+    class Meta:
+        model=versioncontrol
+        fields=[
+            "username",
+            "version",
+            "resumes",
+        ]
 
 
 

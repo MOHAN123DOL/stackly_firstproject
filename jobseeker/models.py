@@ -464,3 +464,14 @@ class resumetoggle(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class versioncontrol(models.Model):
+    user = user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="version_control"
+    )
+    version = models.IntegerField(null=True,blank=True)
+    resumes  = models.FileField(upload_to="resumes/history/", null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+

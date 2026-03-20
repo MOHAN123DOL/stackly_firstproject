@@ -13,7 +13,8 @@ from django.core.cache import cache
 from django.db.models import Count, Q
 from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
 Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , 
-JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle)
+JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle, versioncontrol)
+from .utils.version_history_resume import createversionccontrolresume
 from .serializers import (
     JobSeekerAvatarSerializer,
     JobSeekerRegistrationSerializer,
@@ -35,7 +36,8 @@ from .serializers import (
     JobseekerActivityLogSerializer,
     JobRecommendationFeedbackSerializer,
     ProjectPortfolioSerializer,
-    resumetoggleserializer
+    resumetoggleserializer,
+    resumeversioncontrolserializer
    )
 
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -801,12 +803,13 @@ class ResumeUploadAPIView(GenericAPIView):
     def put(self, request):
 
         jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
-
+        resume= request.FILES.get("resume")
         serializer = self.get_serializer(
             jobseeker,
             data=request.data,
             partial=True
         )
+
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
@@ -861,6 +864,8 @@ class ResumeUploadAPIView(GenericAPIView):
                 "UPLOADED_RESUME",
                 "Uploaded or updated resume"
             )
+        createversionccontrolresume(request.user,
+        resume)
         return Response(
             {
                 "detail": "Resume uploaded successfully",
@@ -1535,6 +1540,14 @@ class ResumeToggleApiView(RetrieveUpdateAPIView):
         )
     
         return resume_option
+
+
+class ResumeversionlistApi(ListAPIView):
+    permission_classes=[IsAuthenticated]
+    serializer_class= resumeversioncontrolserializer
+    def get_queryset(self):
+        return versioncontrol.objects.select_related("user").filter(user=self.request.user).order_by("-updated_at")
+
     
 
 
