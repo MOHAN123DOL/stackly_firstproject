@@ -9,8 +9,10 @@ from employees.models import Employee
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from .models import (JobseekerPreference, Skill ,
-                     JobseekerPrivacySettings , JobseekerActivityLog , JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol)
+                     JobseekerPrivacySettings , JobseekerActivityLog ,
+                      Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol)
 from datetime import date
+
 
 
 class JobSeekerAvatarSerializer(serializers.ModelSerializer):
@@ -520,11 +522,132 @@ class resumeversioncontrolserializer(serializers.ModelSerializer):
             "username",
             "version",
             "resumes",
+            
         ]
 
+class JobseekerCertificateSerializer(serializers.ModelSerializer):
 
+    class Meta:
+        model = Jobseekercertificates
+        fields = [
+            "certificatetype",
+            "certificate",
+            "document_name",
+            "custom_certificate_name",
+            "custom_document_name",
+        ]
+
+    def validate(self,data):
+        EDUCATION_TYPES = ["10TH", "12TH", "DIPLOMA", "UG", "PG"]
+        EDUCATION_DOCS = [
+        "MARKSHEET", "CONSOLIDATED", "PROVISIONAL",
+        "TRANSFER_CERTIFICATE", "BONAFIDE", "DEGREE", "DIPLOMA_CERT"]
 
         
 
-        
+        certificate_type = data.get("certificatetype") or (self.instance.certificatetype if self.instance else None)
+        document_name = data.get("document_name") or (self.instance.document_name if self.instance else None)
+        custom_certificate_name = data.get("custom_certificate_name") or (self.instance.custom_certificate_name if self.instance else None)
+        custom_document_name = data.get("custom_document_name") or (self.instance.custom_document_name if self.instance else None)
+        file = data.get("certificate") or (self.instance.certificate if self.instance else None)
 
+        if not certificate_type:
+            raise serializers.ValidationError("Certificate type is required")
+
+        if not file:
+            raise serializers.ValidationError("File is required")
+
+        if hasattr(file, "size") and file.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("File must be under 5MB")
+
+        if hasattr(file, "name") and not file.name.endswith((".pdf", ".doc", ".docx")):
+            raise serializers.ValidationError("Only PDF/DOC/DOCX allowed")
+
+
+        if certificate_type in EDUCATION_TYPES:
+
+            if not document_name:
+                raise serializers.ValidationError("Document type required")
+
+            if document_name not in EDUCATION_DOCS:
+                raise serializers.ValidationError("Invalid education document type")
+
+        elif certificate_type == "SKILL":
+
+            if not custom_certificate_name:
+                raise serializers.ValidationError("Skill name required")
+
+            data["document_name"] = "COURSE_COMPLETION"
+
+        elif certificate_type == "PROJECT":
+
+            if not custom_certificate_name:
+                raise serializers.ValidationError("Project name required")
+
+            if document_name != "PROJECT_CERT":
+                raise serializers.ValidationError("Project must use PROJECT_CERT")
+            
+        elif certificate_type == "EXPERIENCE":
+
+            if document_name != "EXPERIENCE_LETTER":
+                raise serializers.ValidationError("Experience must use EXPERIENCE_LETTER")
+
+
+        elif certificate_type == "OTHER":
+
+            if not custom_certificate_name:
+                raise serializers.ValidationError("Custom certificate name required")
+
+            qs = Jobseekercertificates.objects.filter(
+                jobseeker__user=request.user,
+                custom_certificate_name=custom_certificate_name
+            )
+
+            if self.instance:
+                qs = qs.exclude(id=self.instance.id)
+
+            if qs.exists():
+                raise serializers.ValidationError("Certificate name already exists")
+
+
+        if document_name == "OTHER":
+
+            if not custom_document_name:
+                raise serializers.ValidationError("Custom document name required")
+
+            qs = Jobseekercertificates.objects.filter(
+                jobseeker__user=request.user,
+                custom_document_name=custom_document_name
+            )
+
+            if self.instance:
+                qs = qs.exclude(id=self.instance.id)
+
+            if qs.exists():
+                raise serializers.ValidationError("Document name already exists")
+            
+        queryset = Jobseekercertificates.objects.filter(
+            jobseeker__user=request.user,
+            certificatetype=certificate_type
+        )
+
+        if certificate_type in ["SKILL", "PROJECT"]:
+            queryset = queryset.filter(
+                custom_certificate_name=custom_certificate_name
+            )
+
+            queryset = queryset.filter(
+                document_name=document_name
+            )
+
+        elif certificate_type == "EXPERIENCE":
+            queryset = queryset.filter(
+                document_name="EXPERIENCE_LETTER"
+            )
+        if self.instance:
+            queryset = queryset.exclude(id=self.instance.id)
+
+        if queryset.exists():
+            raise serializers.ValidationError("Duplicate certificate already exists")
+
+        return data

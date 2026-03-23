@@ -8,12 +8,11 @@ from django.core.files.images import get_image_dimensions
 from django.shortcuts import render
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.core.paginator import EmptyPage
-from rest_framework.permissions import BasePermission
 from django.core.cache import cache
 from django.db.models import Count, Q
 from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
 Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , 
-JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle, versioncontrol)
+JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle, versioncontrol , Jobseekercertificates)
 from .utils.version_history_resume import createversionccontrolresume
 from .serializers import (
     JobSeekerAvatarSerializer,
@@ -37,7 +36,8 @@ from .serializers import (
     JobRecommendationFeedbackSerializer,
     ProjectPortfolioSerializer,
     resumetoggleserializer,
-    resumeversioncontrolserializer
+    resumeversioncontrolserializer,
+    JobseekerCertificateSerializer,
    )
 
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -67,10 +67,6 @@ from.utils.total_experiences_calculator import calculate_total_experience
 from .utils.profile_completion_percentage import calculate_profile_completion
 from .utils.job_reccomedation import generate_recommendations
 from .utils.jobseeker_engagement_score import calculate_engagement_score
-
-
-
-
 
 
 class JobSeekerAvatarAPI(GenericAPIView):
@@ -1510,8 +1506,6 @@ class SimilarJobsAPIView(APIView):
             }
         )
     
-
-
 class ProjectPortfolioListApiView(ListCreateAPIView):
     permission_classes =[IsAuthenticated]
     serializer_class = ProjectPortfolioSerializer
@@ -1547,9 +1541,22 @@ class ResumeversionlistApi(ListAPIView):
     serializer_class= resumeversioncontrolserializer
     def get_queryset(self):
         return versioncontrol.objects.select_related("user").filter(user=self.request.user).order_by("-updated_at")
+    
+
+class JobSeekerDocumentReceivedApi(CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = JobseekerCertificateSerializer
+    def perform_create(self, serializer):
+        jobseeker = JobSeeker.objects.get(user=self.request.user)
+        serializer.save(jobseeker=jobseeker) 
 
     
 
-
+class JobSeekerDocumentReceivedApiView(RetrieveUpdateDestroyAPIView):
+    permission_classes =[IsAuthenticated]
+    serializer_class = JobseekerCertificateSerializer
+    def get_queryset(self):
+        pk= self.kwargs["pk"]
+        return Jobseekercertificates.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user)
 
 

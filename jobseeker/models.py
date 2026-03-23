@@ -75,6 +75,50 @@ class JobExperience(models.Model):
     def __str__(self):
         return f"{self.company_name} - {self.role}"
 
+class Jobseekercertificates(models.Model):
+    CERTIFICATE_TYPE_CHOICES = [
+    ("10TH", "10th Certificate"),
+    ("12TH", "12th Certificate"),
+    ("DIPLOMA", "Diploma"),
+    ("UG", "Undergraduate"),
+    ("PG", "Postgraduate"),
+    ("SKILL", "Skill Certificate"),
+    ("INTERNSHIP", "Internship Certificate"),
+    ("EXPERIENCE", "Experience Certificate"),
+    ("PROJECT", "Project Certificate"),
+    ("OTHER", "Other"),
+]
+    DOCUMENT_NAME_CHOICES = [
+    ("MARKSHEET", "Marksheet"),
+    ("CONSOLIDATED", "Consolidated Marksheet"),
+    ("PROVISIONAL", "Provisional Certificate"),
+    ("TRANSFER_CERTIFICATE", "Transfer Certificate (TC)"),
+    ("BONAFIDE", "Bonafide Certificate"),
+    ("DEGREE", "Degree Certificate"),
+    ("DIPLOMA_CERT", "Diploma Certificate"),
+    ("COURSE_COMPLETION", "Course Completion Certificate"),
+    ("EXPERIENCE_LETTER", "Experience Letter"),
+    ("INTERNSHIP_CERT", "Internship Certificate"),
+    ("PROJECT_CERT", "Project Certificate"),
+    ("OTHER", "Other"),
+]
+    
+    jobseeker=models.ForeignKey(JobSeeker,on_delete=models.CASCADE,related_name="certificate")
+    certificate = models.FileField(upload_to="certificate/", null=True, blank=True)
+    certificatetype = models.CharField(choices=CERTIFICATE_TYPE_CHOICES, null=True, blank=True)
+    document_name = models.CharField(choices=DOCUMENT_NAME_CHOICES, null=True, blank=True)
+    custom_certificate_name = models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="please make space"
+    )
+    custom_document_name =  models.CharField(
+        max_length=300,
+        blank=True,
+        help_text="please make space"
+    )
+    certificate = models.FileField(upload_to="certificate/", null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 class ProjectPortfolio(models.Model):
     jobseeker = models.ForeignKey(
@@ -473,5 +517,6 @@ class versioncontrol(models.Model):
     version = models.IntegerField(null=True,blank=True)
     resumes  = models.FileField(upload_to="resumes/history/", null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
 
 
