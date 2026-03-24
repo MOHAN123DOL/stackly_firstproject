@@ -14,7 +14,7 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                        NearbyJobsAPIView,
                        JobseekerPerformanceInsightsAPIView, NearbyJobsFromProfileAPIView,  SimilarJobsAPIView,
                        ProjectPortfolioListApiView,ProjectPortfolioListApiViewSpecific, ResumeToggleApiView, 
-                       ResumeversionlistApi, JobSeekerDocumentReceivedApi,JobSeekerDocumentReceivedApiView)
+                       ResumeversionlistApi, JobSeekerDocumentReceivedApi,JobSeekerDocumentReceivedRUDApiView)
 urlpatterns = [
     path('avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -60,7 +60,7 @@ urlpatterns = [
     path("resume-toggles/",ResumeToggleApiView.as_view(),name="toggle-resume"),
     path("resume/history/",ResumeversionlistApi.as_view(),name ="resume-history"),
     path("documents/upload/",JobSeekerDocumentReceivedApi.as_view(),name ="documents-uploaded"),
-    path("documents/upload/<int:pk>/",JobSeekerDocumentReceivedApiView.as_view(),name ="documents-uploaded"),
+    path("documents/upload/<int:pk>/",JobSeekerDocumentReceivedRUDApiView.as_view(),name ="documents-uploaded"),
 
     
      ]

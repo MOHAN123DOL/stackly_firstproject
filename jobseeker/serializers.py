@@ -538,6 +538,7 @@ class JobseekerCertificateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self,data):
+        request = self.context["request"]
         EDUCATION_TYPES = ["10TH", "12TH", "DIPLOMA", "UG", "PG"]
         EDUCATION_DOCS = [
         "MARKSHEET", "CONSOLIDATED", "PROVISIONAL",
@@ -550,7 +551,7 @@ class JobseekerCertificateSerializer(serializers.ModelSerializer):
         custom_certificate_name = data.get("custom_certificate_name") or (self.instance.custom_certificate_name if self.instance else None)
         custom_document_name = data.get("custom_document_name") or (self.instance.custom_document_name if self.instance else None)
         file = data.get("certificate") or (self.instance.certificate if self.instance else None)
-
+    
         if not certificate_type:
             raise serializers.ValidationError("Certificate type is required")
 

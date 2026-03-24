@@ -1552,11 +1552,12 @@ class JobSeekerDocumentReceivedApi(CreateAPIView):
 
     
 
-class JobSeekerDocumentReceivedApiView(RetrieveUpdateDestroyAPIView):
+class JobSeekerDocumentReceivedRUDApiView(RetrieveUpdateDestroyAPIView):
     permission_classes =[IsAuthenticated]
     serializer_class = JobseekerCertificateSerializer
     def get_queryset(self):
         pk= self.kwargs["pk"]
         return Jobseekercertificates.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user)
+  
 
 
