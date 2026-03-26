@@ -10,7 +10,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from .models import (JobseekerPreference, Skill ,
                      JobseekerPrivacySettings , JobseekerActivityLog ,
-                      Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol)
+                      Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol,Jobseekereducationdetails)
 from datetime import date
 
 
@@ -652,3 +652,122 @@ class JobseekerCertificateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Duplicate certificate already exists")
 
         return data
+    
+
+class JobseekerEducationDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model= Jobseekereducationdetails
+        fields = [
+            "education_type",
+            "school_name",
+            "college_name",
+            "start_date",
+            "end_date",
+            "percentage",
+            "studying",
+            "history_of_backlog",
+        ]
+    def validate(self,data):
+        request = self.context["request"]
+        EDUCATION_TYPES = ["10TH", "12TH"]
+        EDUCATION_ORDER = {
+                "10TH": 1,
+                "12TH": 2,
+                "DIPLOMA": 2,
+                "UG": 3,
+                "PG": 4
+            }
+        education_type=data.get("education_type") or (self.instance.education_type if self.instance else None)
+        school_name = data.get("school_name") or (self.instance.school_name if self.instance else None)
+        college_name = data.get("college_name") or (self.instance.college_name if self.instance else None)
+        start_date =  data.get("start_date") or (self.instance.start_date if self.instance else None)
+        end_date =  data.get("end_date") or (self.instance.end_date if self.instance else None)
+        percentage = data.get("percentage") or (self.instance.percentage if self.instance else None) 
+        studying = data.get("studying") or (self.instance.studying if self.instance else None)
+        if not education_type:
+            raise serializers.ValidationError("education type cannot be none")
+        if education_type in EDUCATION_TYPES:
+            if not school_name:
+                raise serializers.ValidationError("school  name needed")
+            data["college_name"] = None
+        if education_type not in EDUCATION_TYPES:
+            if not college_name:
+                raise serializers.ValidationError(" college name needed")
+            data["school_name"] = None
+        if not start_date:
+             raise serializers.ValidationError("start date cannot be none")
+        if not end_date:
+             if not studying:
+                raise serializers.ValidationError("end date  or studying any field required")
+        if studying:
+            qss = Jobseekereducationdetails.objects.filter(
+            jobseeker__user=request.user,
+            studying=True)
+            if self.instance:
+                qss=qss.exclude(id=self.instance.id)
+            if qss.exists():
+                raise serializers.ValidationError("already you are studying another education ")
+        if end_date:
+            if (start_date > end_date):
+             raise serializers.ValidationError("start data is higher than end date")
+            if not percentage:
+                raise serializers.ValidationError("percentage required")
+
+        
+        queryset = Jobseekereducationdetails.objects.filter(
+            jobseeker__user=request.user,
+            education_type=education_type)
+        if self.instance:
+            queryset=queryset.exclude(id=self.instance.id)
+        if queryset.exists():
+            raise serializers.ValidationError("education details already exists")
+        
+        existing_studying = Jobseekereducationdetails.objects.filter(
+        jobseeker__user=request.user,
+        studying=True)
+        current_order = EDUCATION_ORDER.get(education_type)
+        if self.instance:
+            existing_studying = existing_studying.exclude(id=self.instance.id)
+        if existing_studying.exists():
+            studying_record = existing_studying.first()
+            studying_order = EDUCATION_ORDER.get(studying_record.education_type)
+            if current_order > studying_order:
+                raise serializers.ValidationError(
+                    f"You cannot add {education_type} while studying {studying_record.education_type}"
+                )
+
+        qs = Jobseekereducationdetails.objects.filter(
+            jobseeker__user=request.user
+        )
+
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+
+        for edu in qs:
+            existing_order = EDUCATION_ORDER.get(edu.education_type)
+
+            if current_order == existing_order:
+                if edu.end_date and end_date:
+                    if start_date <= edu.end_date and end_date >= edu.start_date:
+                        raise serializers.ValidationError(
+                            f"{education_type} overlaps with existing {edu.education_type}"
+                        )
+
+            elif current_order > existing_order:
+                if edu.end_date and start_date <= edu.end_date:
+                    raise serializers.ValidationError(
+                        f"{education_type} must start after {edu.education_type} ends"
+                    )
+            
+            elif current_order < existing_order:
+                if end_date and end_date >= edu.start_date:
+                    raise serializers.ValidationError(
+                        f"{education_type} must end before {edu.education_type} starts"
+                    )
+
+        return data
+            
+            
+                
+     
+            

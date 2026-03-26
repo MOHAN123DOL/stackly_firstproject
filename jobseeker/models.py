@@ -38,7 +38,6 @@ class JobSeeker(models.Model):
         blank=True,
         related_name="jobseekers"
     )
-    education = models.TextField(blank=True)
     title = models.CharField(
         max_length=200,
         blank=True,
@@ -74,6 +73,30 @@ class JobExperience(models.Model):
 
     def __str__(self):
         return f"{self.company_name} - {self.role}"
+
+class Jobseekereducationdetails(models.Model):
+     EDUCATION_CHOICES = [
+    ("10TH", "10th "),
+    ("12TH", "12th "),
+    ("DIPLOMA", "Diploma"),
+    ("UG", "Undergraduate"),
+    ("PG", "Postgraduate"),]
+     jobseeker=models.ForeignKey(JobSeeker,on_delete=models.CASCADE,related_name="education_details")
+     education_type = models.CharField( choices=EDUCATION_CHOICES,null=True, blank=True)
+     school_name=models.CharField( null=True, blank=True)
+     college_name=models.CharField( null=True, blank=True)
+     start_date = models.DateField(null=True, blank=True)
+     end_date = models.DateField(null=True, blank=True)
+     percentage= models.DecimalField(
+    max_digits=5,
+    decimal_places=2,
+    null=True,
+    blank=True,
+    validators=[MinValueValidator(0), MaxValueValidator(100)],)
+     updated_at = models.DateTimeField(auto_now=True)
+     studying = models.BooleanField(default=False)
+     history_of_backlog = models.BooleanField(default=False)
+     
 
 class Jobseekercertificates(models.Model):
     CERTIFICATE_TYPE_CHOICES = [
@@ -119,6 +142,8 @@ class Jobseekercertificates(models.Model):
     )
     certificate = models.FileField(upload_to="certificate/", null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+    def __str__(self):
+        return f"{self.jobseeker} - {self.certificatetype}"
 
 class ProjectPortfolio(models.Model):
     jobseeker = models.ForeignKey(
@@ -517,6 +542,9 @@ class versioncontrol(models.Model):
     version = models.IntegerField(null=True,blank=True)
     resumes  = models.FileField(upload_to="resumes/history/", null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+
 
 
 
