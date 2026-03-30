@@ -12,7 +12,7 @@ from django.core.cache import cache
 from django.db.models import Count, Q
 from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
 Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , 
-JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle, versioncontrol , Jobseekercertificates,Jobseekereducationdetails)
+JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle, versioncontrol , Jobseekercertificates,Jobseekereducationdetails,JobExperience)
 from .utils.version_history_resume import createversionccontrolresume
 from .serializers import (
     JobSeekerAvatarSerializer,
@@ -38,7 +38,8 @@ from .serializers import (
     resumetoggleserializer,
     resumeversioncontrolserializer,
     JobseekerCertificateSerializer,
-    JobseekerEducationDetailsSerializer
+    JobseekerEducationDetailsSerializer,
+    JobseekerExperienceSerializers
    )
 
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -1575,4 +1576,20 @@ class JobSeekerEducationDetailsRUDApiView(RetrieveUpdateDestroyAPIView):
     serializer_class = JobseekerEducationDetailsSerializer
     def get_queryset(self):
         pk= self.kwargs["pk"]
-        return Jobseekereducationdetails.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user) 
+        qs = Jobseekereducationdetails.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user)
+        return qs
+
+class JobSeekerExperienceDetailsApi(CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = JobseekerExperienceSerializers
+    def perform_create(self, serializer):
+        jobseeker = JobSeeker.objects.get(user=self.request.user)
+        serializer.save(jobseeker=jobseeker)    
+       
+class JobSeekerExperienceRUDApiView(RetrieveUpdateDestroyAPIView):
+    permission_classes =[IsAuthenticated]
+    serializer_class = JobseekerExperienceSerializers
+    def get_queryset(self):
+        pk= self.kwargs["pk"]
+        qs = JobExperience.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user)
+        return qs

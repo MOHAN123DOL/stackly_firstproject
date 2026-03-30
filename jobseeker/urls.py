@@ -14,7 +14,8 @@ from .views import (JobSeekerAvatarAPI, JobSeekerRegistrationAPI , JobSeekerProf
                        NearbyJobsAPIView,
                        JobseekerPerformanceInsightsAPIView, NearbyJobsFromProfileAPIView,  SimilarJobsAPIView,
                        ProjectPortfolioListApiView,ProjectPortfolioListApiViewSpecific, ResumeToggleApiView, 
-                       ResumeversionlistApi, JobSeekerDocumentReceivedApi,JobSeekerDocumentReceivedRUDApiView, JobSeekerEducationDetailsApi,JobSeekerEducationDetailsRUDApiView)
+                       ResumeversionlistApi, JobSeekerDocumentReceivedApi,JobSeekerDocumentReceivedRUDApiView, 
+                       JobSeekerEducationDetailsApi,JobSeekerEducationDetailsRUDApiView, JobSeekerExperienceDetailsApi,JobSeekerExperienceRUDApiView)
 urlpatterns = [
     path('avatar/', JobSeekerAvatarAPI.as_view(), name='jobseeker-avatar'),
     path('register/', JobSeekerRegistrationAPI.as_view(), name='jobseeker-register'),
@@ -63,6 +64,8 @@ urlpatterns = [
     path("documents/upload/<int:pk>/",JobSeekerDocumentReceivedRUDApiView.as_view(),name ="documents-uploaded-edit"),
     path("education-details/",JobSeekerEducationDetailsApi.as_view(),name ="education-details"),
     path("education-details/<int:pk>/",JobSeekerEducationDetailsRUDApiView.as_view(),name ="education-details-edit"),
+    path("experience-details/",JobSeekerExperienceDetailsApi.as_view(),name ="experience-details"),
+    path("experience-details/<int:pk>/",JobSeekerExperienceRUDApiView.as_view(),name ="experience-details"),
      ]
 
 

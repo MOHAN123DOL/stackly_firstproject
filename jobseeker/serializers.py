@@ -10,8 +10,9 @@ from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from .models import (JobseekerPreference, Skill ,
                      JobseekerPrivacySettings , JobseekerActivityLog ,
-                      Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol,Jobseekereducationdetails)
+                      Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol,Jobseekereducationdetails, JobExperience)
 from datetime import date
+from django.db.models import Count, Q
 
 
 
@@ -99,7 +100,6 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
             "welcome",
             "first_name",
             "last_name",
-            "education",
             "title",
             "total_experience",
             "avatar",
@@ -766,7 +766,49 @@ class JobseekerEducationDetailsSerializer(serializers.ModelSerializer):
                     )
 
         return data
-            
+    
+
+class JobseekerExperienceSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = JobExperience
+        fields = [
+            "company_name",
+            "start_date",
+            "end_date",
+            "is_current"
+        ]
+    def validate(self, data):
+        request = self.context["request"]
+        Company_name = data.get("company_name") or (self.instance.company_name if self.instance else None)
+        start_date = data.get("start_date") or (self.instance.start_date if self.instance else None)
+        end_date = data.get("end_date") or (self.instance.end_date if self.instance else None)
+        is_current = data.get("is_current") or (self.instance.is_current if self.instance else False)   
+        if not Company_name:
+            raise serializers.ValidationError("company name required")
+        if not start_date :
+            raise serializers.ValidationError("start data is needed")
+        if start_date and end_date :
+            if start_date > end_date:
+                raise serializers.ValidationError("end date will be high")  
+        if is_current:
+            end_date = end_date or start_date
+        else:
+            if not end_date:
+                raise serializers.ValidationError("end date required")
+
+        qs = JobExperience.objects.filter(jobseeker__user=request.user)
+
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+
+        overlap = qs.filter( Q(start_date__lte=end_date) & Q(end_date__gte=start_date) ).exists()
+
+        if overlap:
+            raise serializers.ValidationError("Experience dates overlap with existing record")
+    
+
+        return data
+     
             
                 
      
