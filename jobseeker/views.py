@@ -1589,7 +1589,8 @@ class JobSeekerExperienceDetailsApi(CreateAPIView):
 class JobSeekerExperienceRUDApiView(RetrieveUpdateDestroyAPIView):
     permission_classes =[IsAuthenticated]
     serializer_class = JobseekerExperienceSerializers
+    lookup_field= "uuid"
+    lookup_url_kwarg="uuid"
     def get_queryset(self):
-        pk= self.kwargs["pk"]
-        qs = JobExperience.objects.select_related("jobseeker__user").filter(id=pk,jobseeker__user=self.request.user)
+        qs = JobExperience.objects.select_related("jobseeker__user").filter(jobseeker__user=self.request.user)
         return qs

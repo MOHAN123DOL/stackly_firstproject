@@ -13,6 +13,8 @@ from .models import (JobseekerPreference, Skill ,
                       Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol,Jobseekereducationdetails, JobExperience)
 from datetime import date
 from django.db.models import Count, Q
+from datetime import datetime
+
 
 
 
@@ -775,9 +777,12 @@ class JobseekerExperienceSerializers(serializers.ModelSerializer):
             "company_name",
             "start_date",
             "end_date",
-            "is_current"
+            "is_current",
+            "uuid"
+            
         ]
     def validate(self, data):
+        today = date.today()
         request = self.context["request"]
         Company_name = data.get("company_name") or (self.instance.company_name if self.instance else None)
         start_date = data.get("start_date") or (self.instance.start_date if self.instance else None)
@@ -787,14 +792,25 @@ class JobseekerExperienceSerializers(serializers.ModelSerializer):
             raise serializers.ValidationError("company name required")
         if not start_date :
             raise serializers.ValidationError("start data is needed")
+        if not is_current:
+            if not end_date:
+                raise serializers.ValidationError("end date required")
+        if start_date > today:
+            raise serializers.ValidationError("Start date cannot be in the future")
+
+        if end_date and end_date > today:
+            raise serializers.ValidationError("End date cannot be in the future")
+
         if start_date and end_date :
             if start_date > end_date:
                 raise serializers.ValidationError("end date will be high")  
-        if is_current:
-            end_date = end_date or start_date
-        else:
+            
+        if not is_current:
             if not end_date:
-                raise serializers.ValidationError("end date required")
+                raise serializers.ValidationError("End date is required")
+        else:
+            
+            data["end_date"] = end_date or start_date
 
         qs = JobExperience.objects.filter(jobseeker__user=request.user)
 

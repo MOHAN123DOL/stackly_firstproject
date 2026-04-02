@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -66,7 +67,12 @@ class JobExperience(models.Model):
         blank=True,
         help_text="Leave empty if currently working"
     )
-
+    uuid = models.UUIDField(
+    default=uuid.uuid4,
+    unique=True,
+    editable=False,
+    null=True
+)
     is_current = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)

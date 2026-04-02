@@ -65,7 +65,7 @@ urlpatterns = [
     path("education-details/",JobSeekerEducationDetailsApi.as_view(),name ="education-details"),
     path("education-details/<int:pk>/",JobSeekerEducationDetailsRUDApiView.as_view(),name ="education-details-edit"),
     path("experience-details/",JobSeekerExperienceDetailsApi.as_view(),name ="experience-details"),
-    path("experience-details/<int:pk>/",JobSeekerExperienceRUDApiView.as_view(),name ="experience-details"),
+    path("experience-details/<uuid:uuid>/",JobSeekerExperienceRUDApiView.as_view(),name ="experience-details"),
      ]
 
 
