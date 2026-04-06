@@ -12,7 +12,7 @@ from django.core.cache import cache
 from django.db.models import Count, Q
 from .models import (JobSeeker , UserAppliedJob, UserSavedJob ,Company, 
 Job , JobAlert , JobCategory , Skill , JobView , JobseekerPrivacySettings , 
-JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle, versioncontrol , Jobseekercertificates,Jobseekereducationdetails,JobExperience)
+JobseekerActivityLog, JobRecommendationFeedback, ProjectPortfolio , resumetoggle, versioncontrol , Jobseekercertificates,Jobseekereducationdetails,JobExperience, Jobseekerskills)
 from .utils.version_history_resume import createversionccontrolresume
 from .serializers import (
     JobSeekerAvatarSerializer,
@@ -39,7 +39,8 @@ from .serializers import (
     resumeversioncontrolserializer,
     JobseekerCertificateSerializer,
     JobseekerEducationDetailsSerializer,
-    JobseekerExperienceSerializers
+    JobseekerExperienceSerializers,
+    JobseekerSkillsSerializer
    )
 
 from rest_framework.generics import RetrieveUpdateAPIView
@@ -213,8 +214,9 @@ class JobSeekerProfileAPI(GenericAPIView):
         )
         serializer = self.get_serializer(jobseeker)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
-    def put(self, request):
+    def patch(self, request):
         jobseeker, _ = JobSeeker.objects.get_or_create(
             user=request.user
         )
@@ -1594,3 +1596,28 @@ class JobSeekerExperienceRUDApiView(RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         qs = JobExperience.objects.select_related("jobseeker__user").filter(jobseeker__user=self.request.user)
         return qs
+    
+class JobSeekerSkillsAPI(GenericAPIView):
+    serializer_class = JobseekerSkillsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+        obj, _ = Jobseekerskills.objects.prefetch_related("skills").get_or_create(jobseeker=jobseeker)
+
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data)
+
+    def post(self, request):
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+        obj, _ = Jobseekerskills.objects.get_or_create(jobseeker=jobseeker)
+
+        serializer = self.get_serializer(
+            obj,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

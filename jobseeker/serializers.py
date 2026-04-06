@@ -10,7 +10,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from .models import (JobseekerPreference, Skill ,
                      JobseekerPrivacySettings , JobseekerActivityLog ,
-                      Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol,Jobseekereducationdetails, JobExperience)
+                      Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol,Jobseekereducationdetails, 
+                      JobExperience ,Jobseekerskills)
 from datetime import date
 from django.db.models import Count, Q
 from datetime import datetime
@@ -93,8 +94,11 @@ class JobSeekerRegistrationSerializer(serializers.Serializer):
 
 
 class JobSeekerProfileSerializer(serializers.ModelSerializer):
+
     welcome = serializers.SerializerMethodField()
-    total_experience = serializers.SerializerMethodField()  
+    total_experience = serializers.SerializerMethodField()
+
+
 
     class Meta:
         model = JobSeeker
@@ -103,9 +107,13 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "title",
+         # output
             "total_experience",
             "avatar",
         ]
+
+  
+
 
     def get_welcome(self, obj):
         request = self.context.get("request")
@@ -115,7 +123,9 @@ class JobSeekerProfileSerializer(serializers.ModelSerializer):
 
     def get_total_experience(self, obj):
         from .utils.total_experiences_calculator import calculate_total_experience
-        return calculate_total_experience(obj)
+    
+    
+    
 
 
 
@@ -809,23 +819,71 @@ class JobseekerExperienceSerializers(serializers.ModelSerializer):
             if not end_date:
                 raise serializers.ValidationError("End date is required")
         else:
-            
-            data["end_date"] = end_date or start_date
+            end_date = end_date or start_date
 
         qs = JobExperience.objects.filter(jobseeker__user=request.user)
 
         if self.instance:
             qs = qs.exclude(id=self.instance.id)
+        if start_date and end_date:
+            overlap = qs.filter(
+                Q(start_date__lte=end_date) & Q(end_date__gte=start_date)
+            ).exists()
 
-        overlap = qs.filter( Q(start_date__lte=end_date) & Q(end_date__gte=start_date) ).exists()
-
-        if overlap:
-            raise serializers.ValidationError("Experience dates overlap with existing record")
+            if overlap:
+                raise serializers.ValidationError("Experience dates overlap with existing record")
     
 
         return data
-     
-            
+    
+
+
+class JobseekerSkillsSerializer(serializers.ModelSerializer):
+    skills = serializers.ListField(
+        child=serializers.CharField(),
+        write_only=True
+    )
+
+    skills_list = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = Jobseekerskills
+        fields = ["skills", "skills_list"]
+
+    def get_skills_list(self, obj):
+        return [skill.name for skill in obj.skills.all()]
+
+    def validate_skills(self, value):
+        return list(set([skill.strip().lower() for skill in value]))
+
+    def create_or_update_skills(self, instance, skills_data):
+        skill_objs = []
+
+        for skill_name in skills_data:
+            skill_obj = Skill.objects.filter(name__iexact=skill_name).first()
+
+            if not skill_obj:
+                skill_obj = Skill.objects.create(name=skill_name.title())
+            skill_objs.append(skill_obj)
+
+        instance.skills.add(*skill_objs)  
+    def create(self, validated_data):
+        skills_data = validated_data.pop("skills", [])
+        request = self.context["request"]
+
+        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
+        obj, _ = Jobseekerskills.objects.get_or_create(jobseeker=jobseeker)
+
+        self.create_or_update_skills(obj, skills_data)
+
+        return obj
+  
+    def update(self, instance, validated_data):
+        skills_data = validated_data.get("skills")
+
+        if skills_data is not None:
+            self.create_or_update_skills(instance, skills_data)
+
+        return instance
+        
                 
-     
-            

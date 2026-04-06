@@ -6,9 +6,10 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 
 class Skill(models.Model):
     name = models.CharField(max_length=100, unique=True)
-
     def __str__(self):
         return self.name
+
+
 
 class JobSeeker(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE,related_name="jobuser")
@@ -26,7 +27,6 @@ class JobSeeker(models.Model):
     blank=True,
     validators=[MinValueValidator(-90), MaxValueValidator(90)],
 )
-
     longitude = models.DecimalField(
     max_digits=9,
     decimal_places=5,
@@ -34,11 +34,7 @@ class JobSeeker(models.Model):
     blank=True,
     validators=[MinValueValidator(-180), MaxValueValidator(180)],
 )
-    skills = models.ManyToManyField(
-        Skill,
-        blank=True,
-        related_name="jobseekers"
-    )
+ 
     title = models.CharField(
         max_length=200,
         blank=True,
@@ -50,6 +46,27 @@ class JobSeeker(models.Model):
     def __str__(self):
         return self.user.username
 
+
+class Jobseekerskills(models.Model):
+    jobseeker = models.OneToOneField(
+        JobSeeker,
+        on_delete=models.CASCADE,
+        related_name="skills"
+    )
+
+    skills = models.ManyToManyField(
+        Skill,
+        blank=True,
+        related_name="jobseekers"
+    )
+
+    custom_skills = models.TextField(
+        blank=True,
+        help_text="Comma separated skills entered by user"
+    )
+
+    def __str__(self):
+        return f"{self.jobseeker.user.username} skills"
 
 class JobExperience(models.Model):
     jobseeker = models.ForeignKey(
