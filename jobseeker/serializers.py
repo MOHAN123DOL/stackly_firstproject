@@ -11,7 +11,7 @@ from django.db import transaction
 from .models import (JobseekerPreference, Skill ,
                      JobseekerPrivacySettings , JobseekerActivityLog ,
                       Jobseekercertificates, JobRecommendationFeedback,ProjectPortfolio , resumetoggle, versioncontrol,Jobseekereducationdetails, 
-                      JobExperience ,Jobseekerskills)
+                      JobExperience ,Jobseekerskills, PendingSkill)
 from datetime import date
 from django.db.models import Count, Q
 from datetime import datetime
@@ -839,51 +839,126 @@ class JobseekerExperienceSerializers(serializers.ModelSerializer):
 
 
 class JobseekerSkillsSerializer(serializers.ModelSerializer):
-    skills = serializers.ListField(
-        child=serializers.CharField(),
-        write_only=True
+    skills = serializers.PrimaryKeyRelatedField(
+        queryset=Skill.objects.all(),
+        many=True,
     )
-
-    skills_list = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Jobseekerskills
-        fields = ["skills", "skills_list"]
+        fields = ["skills", "custom_skills"]
 
-    def get_skills_list(self, obj):
-        return [skill.name for skill in obj.skills.all()]
+    
+    def handle_pending_skills(self, custom_skills, user,obj):
+        if not custom_skills:
+            return ""
 
-    def validate_skills(self, value):
-        return list(set([skill.strip().lower() for skill in value]))
 
-    def create_or_update_skills(self, instance, skills_data):
-        skill_objs = []
+        skills_list = [
+            s.strip().lower()
+            for s in custom_skills.split(",")
+            if s.strip()
+        ]
 
-        for skill_name in skills_data:
-            skill_obj = Skill.objects.filter(name__iexact=skill_name).first()
-
-            if not skill_obj:
-                skill_obj = Skill.objects.create(name=skill_name.title())
-            skill_objs.append(skill_obj)
-
-        instance.skills.add(*skill_objs)  
-    def create(self, validated_data):
-        skills_data = validated_data.pop("skills", [])
-        request = self.context["request"]
-
-        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
-        obj, _ = Jobseekerskills.objects.get_or_create(jobseeker=jobseeker)
-
-        self.create_or_update_skills(obj, skills_data)
-
-        return obj
   
+        skills_list = list(set(skills_list))
+
+        if not skills_list:
+            return ""
+
+        existing_skills = Skill.objects.filter(name__in=skills_list)
+        existing_names = set(existing_skills.values_list("name", flat=True))
+
+
+        pending_skills = PendingSkill.objects.filter(
+            name__in=skills_list,
+            created_by=user,
+            status="pending"
+        )
+        pending_names = set(pending_skills.values_list("name", flat=True))
+
+
+        to_create = set(skills_list) - existing_names - pending_names
+
+        PendingSkill.objects.bulk_create([
+            PendingSkill(name=name, created_by=user)
+            for name in to_create
+        ])
+        existing_custom = []
+        if obj.custom_skills:
+            existing_custom = [
+                s.strip().lower()
+                for s in obj.custom_skills.split(",")
+                if s.strip()
+            ]
+
+        final_custom = list(set(existing_custom +skills_list))
+
+        return ", ".join(final_custom)
+
+    def create(self, validated_data):
+        skills = validated_data.pop("skills", [])
+        custom_skills = validated_data.get("custom_skills", "")
+
+        jobseeker = self.context["jobseeker"]
+        user = jobseeker.user
+
+        obj, _ = Jobseekerskills.objects.get_or_create(
+            jobseeker=jobseeker
+        )
+
+      
+        obj.skills.add(*skills)
+
+           
+        new_custom = self.handle_pending_skills(custom_skills, user,obj)
+
+        obj.custom_skills = new_custom
+        obj.save()
+        return obj
+    
     def update(self, instance, validated_data):
-        skills_data = validated_data.get("skills")
+        skills = validated_data.pop("skills", None)
+        custom_skills = validated_data.get("custom_skills", None)
 
-        if skills_data is not None:
-            self.create_or_update_skills(instance, skills_data)
+        user = instance.jobseeker.user
 
+        if skills is not None:
+            instance.skills.set(skills)
+
+        if custom_skills is not None:
+            skills_list = [
+            s.strip().lower()
+            for s in custom_skills.split(",")
+            if s.strip()
+        ]
+        skills_list = list(set(skills_list))
+
+        if not skills_list:
+            return ""
+
+        existing_skills = Skill.objects.filter(name__in=skills_list)
+        existing_names = set(existing_skills.values_list("name", flat=True))
+
+
+        pending_skills = PendingSkill.objects.filter(
+                name__in=skills_list,
+                created_by=user,
+                status="pending"
+            )
+        pending_names = set(pending_skills.values_list("name", flat=True))
+
+
+        to_create = set(skills_list) - existing_names - pending_names
+
+        PendingSkill.objects.bulk_create([
+                PendingSkill(name=name, created_by=user)
+                for name in to_create
+            ])
+
+        final_custom = list(set( skills_list))
+
+        instance.custom_skills = ", ".join(final_custom)
+
+        instance.save()
         return instance
-        
-                

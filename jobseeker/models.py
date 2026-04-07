@@ -6,6 +6,11 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 
 class Skill(models.Model):
     name = models.CharField(max_length=100, unique=True)
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.strip().lower()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
@@ -61,12 +66,32 @@ class Jobseekerskills(models.Model):
     )
 
     custom_skills = models.TextField(
-        blank=True,
+        blank=True,max_length=100, unique=True,
         help_text="Comma separated skills entered by user"
     )
 
     def __str__(self):
         return f"{self.jobseeker.user.username} skills"
+
+
+class PendingSkill(models.Model):
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    name = models.CharField(max_length=100)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.strip().lower()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
 
 class JobExperience(models.Model):
     jobseeker = models.ForeignKey(

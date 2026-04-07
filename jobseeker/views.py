@@ -40,8 +40,10 @@ from .serializers import (
     JobseekerCertificateSerializer,
     JobseekerEducationDetailsSerializer,
     JobseekerExperienceSerializers,
-    JobseekerSkillsSerializer
+   
    )
+from .models import JobSeeker, Jobseekerskills
+from .serializers import JobseekerSkillsSerializer
 
 from rest_framework.generics import RetrieveUpdateAPIView
 from .models import JobseekerPreference
@@ -1597,27 +1599,78 @@ class JobSeekerExperienceRUDApiView(RetrieveUpdateDestroyAPIView):
         qs = JobExperience.objects.select_related("jobseeker__user").filter(jobseeker__user=self.request.user)
         return qs
     
+
+
+
+
 class JobSeekerSkillsAPI(GenericAPIView):
     serializer_class = JobseekerSkillsSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
-        obj, _ = Jobseekerskills.objects.prefetch_related("skills").get_or_create(jobseeker=jobseeker)
+    def get_queryset(self):
+        return Jobseekerskills.objects.select_related(
+            "jobseeker__user"
+        ).prefetch_related("skills")
 
-        serializer = self.get_serializer(obj)
+    def get_object(self):
+
+        jobseeker, _ = JobSeeker.objects.get_or_create(
+            user=self.request.user
+        )
+
+        obj, _ = self.get_queryset().get_or_create(
+            jobseeker=jobseeker
+        )
+
+        return obj, jobseeker
+
+    
+    def get(self, request):
+        skills_obj, _ = self.get_object()
+
+        serializer = self.get_serializer(skills_obj)
         return Response(serializer.data)
 
+  
     def post(self, request):
-        jobseeker, _ = JobSeeker.objects.get_or_create(user=request.user)
-        obj, _ = Jobseekerskills.objects.get_or_create(jobseeker=jobseeker)
+        skills_obj, jobseeker = self.get_object()
 
         serializer = self.get_serializer(
-            obj,
+            skills_obj,   
             data=request.data,
-            partial=True
+            partial=True,
+            context={"jobseeker": jobseeker}
         )
+
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data)
+
+  
+    def patch(self, request):
+        skills_obj, jobseeker = self.get_object()
+
+        serializer = self.get_serializer(
+            skills_obj,
+            data=request.data,
+            partial=True,
+            context={"jobseeker": jobseeker}
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data)
+
+    def delete(self, request):
+        skills_obj, _ = self.get_object()
+
+        skills_obj.skills.clear()
+        skills_obj.custom_skills = ""   
+        skills_obj.save()
+
+        return Response(
+            {"message": "Skills removed successfully"},
+            status=204
+        )
