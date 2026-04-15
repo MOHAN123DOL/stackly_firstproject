@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from .pagination import MessagePagination
-from jobseeker.models import Job, UserAppliedJob
+from jobseeker.models import Job, UserAppliedJob,JobSeeker
+from notifications.utils import create_notification
 from employees.models import Employee
 from django.db import transaction
 from .models import Conversation, ConversationParticipant, Message
@@ -125,12 +126,19 @@ class SendMessageAPIView(CreateAPIView):
             user=self.request.user
         ).exists():
             raise PermissionDenied("Not allowed")
-
+        text = serializer.validated_data["text"]
         self.message = Message.objects.create(
             conversation=conversation,
             sender=self.request.user,
-            text=serializer.validated_data["text"]
+            text=text
         )
+        participants = conversation.participants.exclude(user=self.request.user)
+
+        for p in participants:
+            create_notification(
+                p.user,
+                f" {text} received from {self.request.user.username} "
+    )
 
     def create(self, request, *args, **kwargs):
         super().create(request, *args, **kwargs)

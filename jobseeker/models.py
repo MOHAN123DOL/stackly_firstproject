@@ -169,7 +169,6 @@ class Jobseekercertificates(models.Model):
     ("DIPLOMA_CERT", "Diploma Certificate"),
     ("COURSE_COMPLETION", "Course Completion Certificate"),
     ("EXPERIENCE_LETTER", "Experience Letter"),
-    ("INTERNSHIP_CERT", "Internship Certificate"),
     ("PROJECT_CERT", "Project Certificate"),
     ("OTHER", "Other"),
 ]

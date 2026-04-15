@@ -1,6 +1,8 @@
 from rest_framework.generics import GenericAPIView ,CreateAPIView , ListAPIView ,RetrieveUpdateDestroyAPIView , RetrieveUpdateAPIView
 from rest_framework.response import Response
 from rest_framework.generics import mixins
+from datetime import timedelta
+from jobseeker.tasks import send_interview_reminder
 from rest_framework import status
 from django.contrib.auth.models import User 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -153,79 +155,99 @@ class JobCategoryAPIView(RetrieveUpdateDestroyAPIView):
 class ScheduleInterviewAPIView(CreateAPIView):
     serializer_class = InterviewSerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
+    queryset = Interview.objects.none()
+
+    def _get_employee_company_id(self):
+        if not hasattr(self, "_employee_company_id"):
+            self._employee_company_id = Employee.objects.filter(
+                user_id=self.request.user.id
+            ).values_list("company_id", flat=True).first()
+        return self._employee_company_id
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.user.is_authenticated:
+            context["company_id"] = self._get_employee_company_id()
+        return context
 
     def perform_create(self, serializer):
+
+        user_id = self.request.user.id
+
+        # ✅ 1 QUERY — get employee + company_id only
+        company_id = self._get_employee_company_id()
+        if not company_id:
+            raise ValidationError("You are not an employee.")
 
         job = serializer.validated_data["job"]
         jobseeker = serializer.validated_data["jobseeker"]
 
-        # 1️⃣ Check logged-in user is employee of job company
-        is_employee = Employee.objects.filter(
-            user=self.request.user,
-            company=job.company
-        ).exists()
+       
 
-        if not is_employee:
-            raise ValidationError("You cannot schedule interview for this job.")
+        if job.company_id != company_id:
+            raise ValidationError("Invalid job access.")
 
-        # 2️⃣ Check candidate applied (IMPORTANT FIX)
-        applied = UserAppliedJob.objects.filter(
-            job=job,
-            user=jobseeker.user   # ✅ correct
-        ).exists()
+        
+        if not UserAppliedJob.objects.filter(
+            job_id=job.id,
+            user_id=jobseeker.user_id
+        ).exists():
+            raise ValidationError("Candidate not applied.")
 
-        if not applied:
-            raise ValidationError("This candidate did not apply for this job.")
+       
+        interview = serializer.save(scheduled_by_id=user_id)
 
-        # 3️⃣ Save interview
-        interview = serializer.save(scheduled_by=self.request.user)
+       
+        reminder_time = interview.interview_date - timedelta(hours=1)
 
-        jobseeker_user = jobseeker.user   # ✅ correct
-        employer_user = self.request.user
+        if reminder_time > now():
+            send_interview_reminder.apply_async(
+                args=[interview.id],
+                eta=reminder_time
+            )
 
-        # 4️⃣ Get or create conversation
+        
         conversation, _ = Conversation.objects.get_or_create(
-            job=job,
-            jobseeker=jobseeker_user
+            job_id=job.id,
+            jobseeker_id=jobseeker.user_id
         )
 
-        # 5️⃣ Add participants
+        
+        employee_user_ids = list(
+            Employee.objects.filter(
+                company_id=company_id
+            ).values_list("user_id", flat=True)
+        )
+
+        
+        participants = [
+            ConversationParticipant(
+                conversation_id=conversation.id,
+                user_id=uid,
+                role="EMPLOYER"
+            )
+            for uid in employee_user_ids
+        ]
+
+       
+        ConversationParticipant.objects.bulk_create(
+            participants,
+            ignore_conflicts=True
+        )
+
+        
         ConversationParticipant.objects.get_or_create(
-            conversation=conversation,
-            user=jobseeker_user,
+            conversation_id=conversation.id,
+            user_id=jobseeker.user_id,
             role="JOBSEEKER"
         )
 
-        employees = Employee.objects.filter(company=job.company)
-
-        for emp in employees:
-            ConversationParticipant.objects.get_or_create(
-                conversation=conversation,
-                user=emp.user,
-                role="EMPLOYER"
-            )
-
-        # 6️⃣ Create system message
-        message_text = (
-            f"Interview Scheduled! "
-            f"Job: {job.role} "
-            f"Date: {interview.interview_date} "
-            f"Mode: {interview.mode} "
-            f"For more detail click--/jobseeker/interview/my/"
-        )
-
-        if interview.mode == "online":
-            message_text += f"Meeting Link: {interview.meeting_link}"
-        else:
-            message_text += f"Location: {interview.location}"
-
+       
         Message.objects.create(
-            conversation=conversation,
-            sender=employer_user,
-            text=message_text,
+            conversation_id=conversation.id,
+            sender_id=user_id,
+            text=f"Interview Scheduled! Job: {job.role} Date: {interview.interview_date}"
         )
-
-
 class EmployerJobApplicationsAPIView(ListAPIView):
     serializer_class = EmployerApplicationListSerializer
     permission_classes = [IsAuthenticated]

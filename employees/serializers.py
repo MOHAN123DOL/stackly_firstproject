@@ -4,8 +4,8 @@ from .models import Employee , Interview
 from jobseeker.models import Job , JobCategory , UserAppliedJob
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
-#FOR SIGNUP PAGE 
-
+from jobseeker.models import JobSeeker
+from django.utils import timezone
 
 class EmployeeRegistrationSerializer(serializers.ModelSerializer):
 
@@ -180,18 +180,46 @@ class JobCategorySerializer(serializers.ModelSerializer):
             "jobs_count"
         ]
         read_only_fields = ["id", "created_at"]
-
-
-
 class InterviewSerializer(serializers.ModelSerializer):
 
     interview_date = serializers.DateTimeField(
-        format="%d-%m-%Y %I:%M %p"
+        
     )
+
+    scheduled_by = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
+
+    reminder_sent_1hr = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = Interview
         fields = "__all__"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        company_id = self.context.get("company_id")
+
+        if request and request.user.is_authenticated and company_id:
+            self.fields["job"].queryset = Job.objects.filter(
+                company_id=company_id
+            ).select_related("company").only("id", "role", "company_id", "company__name")
+
+            self.fields["jobseeker"].queryset = JobSeeker.objects.filter(
+                user__userappliedjob__job__company_id=company_id
+            ).select_related("user").only("id", "user_id", "user__username").distinct()
+        else:
+            self.fields["job"].queryset = Job.objects.none()
+            self.fields["jobseeker"].queryset = JobSeeker.objects.none()
+
+    
+    def validate_interview_date(self, value):
+        if timezone.is_naive(value):
+            value = timezone.make_aware(value, timezone.get_current_timezone())
+        return value
+
+   
     def validate(self, data):
         mode = data.get("mode")
         meeting_link = data.get("meeting_link")
@@ -202,14 +230,14 @@ class InterviewSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Meeting link is required for online interviews."
                 )
-            data["location"] = None   # force null
+            data["location"] = None
 
         elif mode == "offline":
             if not location:
                 raise serializers.ValidationError(
                     "Location is required for offline interviews."
                 )
-            data["meeting_link"] = None  # force null
+            data["meeting_link"] = None
 
         else:
             raise serializers.ValidationError(
@@ -217,9 +245,6 @@ class InterviewSerializer(serializers.ModelSerializer):
             )
 
         return data
-    
-
-
 
 class EmployerApplicationListSerializer(serializers.ModelSerializer):
 

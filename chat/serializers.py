@@ -39,8 +39,8 @@ class EmployerOpenChatSerializer(serializers.Serializer):
 
         # Only jobseekers who applied to company jobs
         self.fields["jobseeker"].queryset = User.objects.filter(
-            applications__job__in=company_jobs
-        ).distinct()
+    userappliedjob__job__in=company_jobs
+).distinct()
             
 class MessageSerializer(serializers.ModelSerializer):
     sender = serializers.StringRelatedField()

@@ -629,23 +629,20 @@ class ApplyJobAPIView(CreateAPIView):
             Job,
             id=serializer.validated_data["job_id"]
         )
+        user=request.user
 
-        # Prevent duplicate application
+      
         if UserAppliedJob.objects.filter(
             user=request.user,
             job=job
         ).exists():
             raise ValidationError({"detail": "Already applied"})
 
-        # Get jobseeker profile
-        try:
-            jobseeker_profile = request.user.jobseeker
-        except:
-            raise ValidationError({"detail": "Jobseeker profile not found"})
+        jobseeker_profile=JobSeeker.objects.get(user=request.user)
 
         uploaded_resume = serializer.validated_data.get("resume")
 
-        # Resume validation logic
+      
         if not uploaded_resume and not jobseeker_profile.resume:
             raise ValidationError({
                 "detail": "Upload resume in profile or while applying."
@@ -658,6 +655,7 @@ class ApplyJobAPIView(CreateAPIView):
             job=job,
             resume=resume_to_save
         )
+        create_notification(user, f"you sucessfully applied for the {job}")
         create_activity_log(
             request.user,
             "APPLIED_JOB",
@@ -674,19 +672,18 @@ class ApplyJobAPIView(CreateAPIView):
         }, status=201)
 
 
-#for job alert crud 
+
 class JobAlertCreateAPIView(CreateAPIView):
     serializer_class = JobAlertSerializer
     permission_classes = [IsAuthenticated]
 
     def get_serializer_context(self):
-        # pass request to serializer (needed for auto-fill role)
+        
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
 
     def perform_create(self, serializer):
-        # user is always taken from token/session, not from payload
         serializer.save(user=self.request.user)
 
 class JobAlertListAPIView(ListAPIView):

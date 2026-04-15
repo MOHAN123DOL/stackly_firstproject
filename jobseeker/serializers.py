@@ -838,6 +838,10 @@ class JobseekerExperienceSerializers(serializers.ModelSerializer):
     
 
 
+from rest_framework import serializers
+from .models import Jobseekerskills, Skill, PendingSkill
+
+
 class JobseekerSkillsSerializer(serializers.ModelSerializer):
     skills = serializers.PrimaryKeyRelatedField(
         queryset=Skill.objects.all(),
@@ -848,28 +852,28 @@ class JobseekerSkillsSerializer(serializers.ModelSerializer):
         model = Jobseekerskills
         fields = ["skills", "custom_skills"]
 
-    
-    def handle_pending_skills(self, custom_skills, user,obj):
+    # ✅ Common logic (REUSED in both create & update)
+    def handle_pending_skills(self, custom_skills, user, obj):
         if not custom_skills:
-            return ""
+            return obj.custom_skills or ""
 
-
+        # normalize input
         skills_list = [
             s.strip().lower()
             for s in custom_skills.split(",")
             if s.strip()
         ]
 
-  
         skills_list = list(set(skills_list))
 
         if not skills_list:
-            return ""
+            return obj.custom_skills or ""
 
+        # existing approved skills
         existing_skills = Skill.objects.filter(name__in=skills_list)
         existing_names = set(existing_skills.values_list("name", flat=True))
 
-
+        # already pending
         pending_skills = PendingSkill.objects.filter(
             name__in=skills_list,
             created_by=user,
@@ -877,13 +881,15 @@ class JobseekerSkillsSerializer(serializers.ModelSerializer):
         )
         pending_names = set(pending_skills.values_list("name", flat=True))
 
-
+        # create new pending skills
         to_create = set(skills_list) - existing_names - pending_names
 
         PendingSkill.objects.bulk_create([
             PendingSkill(name=name, created_by=user)
             for name in to_create
         ])
+
+        # merge with existing custom skills
         existing_custom = []
         if obj.custom_skills:
             existing_custom = [
@@ -892,10 +898,11 @@ class JobseekerSkillsSerializer(serializers.ModelSerializer):
                 if s.strip()
             ]
 
-        final_custom = list(set(existing_custom +skills_list))
+        final_custom = list(set(existing_custom + skills_list))
 
         return ", ".join(final_custom)
 
+    # ✅ CREATE
     def create(self, validated_data):
         skills = validated_data.pop("skills", [])
         custom_skills = validated_data.get("custom_skills", "")
@@ -907,58 +914,32 @@ class JobseekerSkillsSerializer(serializers.ModelSerializer):
             jobseeker=jobseeker
         )
 
-      
-        obj.skills.add(*skills)
+        # add skills (many-to-many)
+        if skills:
+            obj.skills.add(*skills)
 
-           
-        new_custom = self.handle_pending_skills(custom_skills, user,obj)
+        # handle custom skills
+        obj.custom_skills = self.handle_pending_skills(custom_skills, user, obj)
 
-        obj.custom_skills = new_custom
         obj.save()
         return obj
-    
+
+    # ✅ UPDATE
     def update(self, instance, validated_data):
         skills = validated_data.pop("skills", None)
         custom_skills = validated_data.get("custom_skills", None)
 
         user = instance.jobseeker.user
 
+        # update skills
         if skills is not None:
             instance.skills.set(skills)
 
+        # update custom skills
         if custom_skills is not None:
-            skills_list = [
-            s.strip().lower()
-            for s in custom_skills.split(",")
-            if s.strip()
-        ]
-        skills_list = list(set(skills_list))
-
-        if not skills_list:
-            return ""
-
-        existing_skills = Skill.objects.filter(name__in=skills_list)
-        existing_names = set(existing_skills.values_list("name", flat=True))
-
-
-        pending_skills = PendingSkill.objects.filter(
-                name__in=skills_list,
-                created_by=user,
-                status="pending"
+            instance.custom_skills = self.handle_pending_skills(
+                custom_skills, user, instance
             )
-        pending_names = set(pending_skills.values_list("name", flat=True))
-
-
-        to_create = set(skills_list) - existing_names - pending_names
-
-        PendingSkill.objects.bulk_create([
-                PendingSkill(name=name, created_by=user)
-                for name in to_create
-            ])
-
-        final_custom = list(set( skills_list))
-
-        instance.custom_skills = ", ".join(final_custom)
 
         instance.save()
         return instance
