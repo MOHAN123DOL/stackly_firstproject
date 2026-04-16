@@ -245,7 +245,7 @@ class JobAlert(models.Model):
 
     min_salary = models.IntegerField(null=True, blank=True)
     max_salary = models.IntegerField(null=True, blank=True)
-    
+    last_notified_at = models.DateTimeField(null=True, blank=True)
     last_read_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

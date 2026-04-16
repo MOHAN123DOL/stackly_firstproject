@@ -32,7 +32,7 @@ class OpenChatAPIView(CreateAPIView):
  
     
 
-    @transaction.atomic # for safe insertion 
+    @transaction.atomic 
     def perform_create(self, serializer):
         user = self.request.user
         job = serializer.validated_data["job"]

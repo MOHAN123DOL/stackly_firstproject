@@ -3,17 +3,16 @@ from jobseeker.models import Job
 
 
 def match_jobs(alert):
-    locations = [l.strip() for l in alert.locations.split(",")]
+    locations = [l.strip() for l in alert.locations.split(",") if l.strip()]
 
-    location_q = Q()
-    for loc in locations:
-        location_q |= Q(company__location__icontains=loc)
-
-    return Job.objects.filter(
-        role__icontains=alert.role,
-        duration=alert.duration,
-        salary_min__gte=alert.min_salary,
-        salary_max__lte=alert.max_salary,
-    ).filter(location_q)
-
-
+    return (
+        Job.objects
+        .select_related("company") 
+        .filter(
+            role__icontains=alert.role,
+            duration=alert.duration,
+            salary_max__gte=alert.min_salary,
+            salary_min__lte=alert.max_salary,
+            company__location__iregex=r"|".join(locations) if locations else None,
+        )
+    )
